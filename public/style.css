@@ -1,0 +1,66 @@
+
+* {
+    box-sizing: border-box;
+}
+html, body {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+main {
+    display: flex;
+    height: auto;
+    flex-direction: column;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+.msg {
+    background: rgba(0,0,0,0.75);
+    border-radius: 1em 0 0 1em;
+    margin: 0.4em 0;
+    padding: 0.5em 0 0.5em 1em;
+
+    font-family: "Open Sans";
+    font-size: 18px;
+    line-height: 18px;
+    color: #ccc;
+    border-left: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+}
+    .msg--p-Odysee {
+        border-color: rgb(166, 10, 67, 0.75);
+    }
+    .msg--p-Rumble {
+        border-color: rgba(133, 199, 66, 0.75);
+    }
+    .msg--p-YouTube {
+        border-color: rgba(255, 0, 0, 0.75);
+    }
+.msg-user {
+    margin-bottom: 0.25em;
+    font-weight: bold;
+}
+.msg-avatar {
+    display: none;
+    float: left;
+    height: 3.2rem;
+    width: 3.2rem;
+}
+.msg-text {
+    word-wrap: break-word;
+}
+    .msg-text img {
+        max-height: 1em;
+        vertical-align: top;
+    }
+    .msg-text a {
+        color: #ccc;
+        font-weight: normal;
+        text-decoration: none;
+    }

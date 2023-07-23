@@ -1,11 +1,11 @@
 use actix::*;
-use std::time::Instant;
 use actix_web_actors::ws;
+use std::time::Instant;
 
-use super::CLIENT_TIMEOUT;
-use super::HEARTBEAT_INTERVAL;
 use super::message;
 use super::ChatServer;
+use super::CLIENT_TIMEOUT;
+use super::HEARTBEAT_INTERVAL;
 
 pub struct ChatClient {
     /// Connection ID
@@ -136,11 +136,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatClient {
             }
             ws::Message::Binary(_) => log::warn!("Unexpected ChatClient binary."),
             ws::Message::Close(reason) => {
-                log::debug!(
-                    "Client {} disconnecting with reason: {:?}",
-                    self.id,
-                    reason
-                );
+                log::debug!("Client {} disconnecting with reason: {:?}", self.id, reason);
                 ctx.close(reason);
                 ctx.stop();
             }

@@ -21,37 +21,44 @@ main {
     right: 0;
 }
 .msg {
+    display: flex;
+    flex-direction: row;
+    position: relative;
+    overflow: hidden;
+
     background: rgba(0,0,0,0.75);
-    border-radius: 1em 0 0 1em;
-    margin: 0.4em 0;
-    padding: 0.5em 0 0.5em 1em;
+    border-radius: 2em 0 0 2em;
+    margin: 0.2em 0;
+    padding: 0.5em;
 
     font-family: "Open Sans";
-    font-size: 18px;
-    line-height: 18px;
+    font-size: 16px;
+    line-height: 16px;
     color: #ccc;
-    border-left: 1px solid transparent;
-    border-bottom: 1px solid transparent;
 }
-    .msg--p-Odysee {
-        border-color: rgb(166, 10, 67, 0.75);
-    }
-    .msg--p-Rumble {
-        border-color: rgba(133, 199, 66, 0.75);
-    }
-    .msg--p-YouTube {
-        border-color: rgba(255, 0, 0, 0.75);
-    }
 .msg-user {
-    margin-bottom: 0.25em;
+    font-size: 90%;
+    vertical-align: bottom;
     font-weight: bold;
 }
 .msg-avatar {
-    display: none;
-    float: left;
-    height: 3.2rem;
-    width: 3.2rem;
+    height: 2em;
+    width: 2em;
+    border-radius: 100%;
+    margin-right: 0.5em;
+    border: 2px solid transparent;
+    box-sizing:  border-box;
 }
+    .msg--p-Odysee .msg-avatar {
+        border-color: rgb(166, 10, 67, 0.33);
+    }
+    .msg--p-Rumble .msg-avatar {
+        border-color: rgba(133, 199, 66, 0.33);
+    }
+    .msg--p-YouTube .msg-avatar {
+        border-color: rgba(255, 0, 0, 0.33);
+    }
+
 .msg-text {
     word-wrap: break-word;
 }
@@ -64,3 +71,26 @@ main {
         font-weight: normal;
         text-decoration: none;
     }
+
+/*
+.msg::before {
+    display: inline-block;
+    content: ' ';
+    height: 4em;
+    width: 4em;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center center;
+    position: absolute;
+    top: -0.5em;
+    right: 0;
+    transform: rotate(20deg);
+    opacity: 0.15;
+}
+    .msg--p-Rumble::before {
+        background-image: url(/logo/rumble.svg);
+    }
+    .msg--p-YouTube::before {
+        background-image: url(/logo/youtube.svg);
+    }
+    */

@@ -10,13 +10,13 @@ pub struct Connection {
 
 /// Define HTTP actor
 pub struct ChatServer {
-    pub clients: HashMap<usize, Connection>
+    pub clients: HashMap<usize, Connection>,
 }
 
 impl ChatServer {
     pub fn new() -> Self {
         log::info!("Chat actor starting up.");
-        
+
         Self {
             clients: HashMap::new(),
         }
@@ -43,10 +43,13 @@ impl Handler<message::Connect> for ChatServer {
         log::debug!("New client connected to chat.");
         // random usize
         let id: usize = rand::random();
-        self.clients.insert(id, Connection {
+        self.clients.insert(
             id,
-            recipient: msg.recipient
-        });
+            Connection {
+                id,
+                recipient: msg.recipient,
+            },
+        );
         id
     }
 }
@@ -69,7 +72,8 @@ impl Handler<message::Content> for ChatServer {
         log::debug!("[ChatServer] {}", msg.chat_message.to_console_msg());
         // Send message to all clients.
         for (_, conn) in &self.clients {
-            conn.recipient.do_send(message::Reply(msg.chat_message.to_html()));
+            conn.recipient
+                .do_send(message::Reply(msg.chat_message.to_json()));
         }
     }
 }

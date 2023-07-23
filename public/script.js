@@ -1,4 +1,4 @@
-(function() {
+(function () {
     const main = document.querySelector("main");
 
     // Create WebSocket connection.
@@ -19,25 +19,28 @@
 
     // Listen for messages
     socket.addEventListener("message", (event) => {
-        const ct = document.createElement("div");
-        const el = document.createElement("div");
-        main.appendChild(el);
-        el.outerHTML = event.data;
+        const message = JSON.parse(event.data);
+        console.log(message);
+        // check if element already exists
+        if (document.getElementById(message.id) === null) {
+            let el = document.createElement("div");
+            main.appendChild(el);
+            el.outerHTML = message.html;
+            el.scrollIntoView();
 
-        el.scrollIntoView();
-
-        while (main.children.length > 100) {
-            main.removeChild(main.firstChild);
+            while (main.children.length > 100) {
+                main.removeChild(main.firstChild);
+            }
         }
     });
 
     socket.addEventListener("close", (event) => {
         console.log("Socket has closed. Attempting reconnect.", event.reason);
-        setTimeout(function() { reconnect(); }, 3000);
+        setTimeout(function () { reconnect(); }, 3000);
     });
 
     socket.addEventListener("error", (event) => {
         socket.close();
-        setTimeout(function() { reconnect(); }, 3000);
+        setTimeout(function () { reconnect(); }, 3000);
     });
 })();

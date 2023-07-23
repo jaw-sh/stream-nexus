@@ -1,5 +1,7 @@
 <div class="msg msg--p-{{ message.platform }}" id="{{ message.id }}" style="order: {{ message.received_at }}">
     <img src="{{ message.avatar }}" class="msg-avatar" />
-    <div class="msg-user">{{ message.username }}</div>
-    <div class="msg-text">{{ message.message|safe }} </div>
+    <div class="msg-container">
+        <div class="msg-user">{{ message.username }}</div>
+        <div class="msg-text">{{ message.message|safe }} </div>
+    </div>
 </div>

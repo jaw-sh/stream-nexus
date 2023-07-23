@@ -1,13 +1,13 @@
 mod client;
-mod server;
 mod message;
+mod server;
 
 pub use client::ChatClient;
-pub use server::ChatServer;
 pub use message::Content as ChatMessage;
+pub use server::ChatServer;
 
 use actix::Addr;
-use actix_web::{web, Error, Responder, HttpRequest, HttpResponse, http::header};
+use actix_web::{http::header, web, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
 use askama_actix::Template;
 use std::time::{Duration, Instant};
@@ -36,6 +36,17 @@ pub async fn stylesheet() -> impl Responder {
     HttpResponse::Ok()
         .append_header((header::CONTENT_TYPE, "text/css"))
         .body(std::fs::read_to_string("public/style.css").unwrap())
+}
+
+#[actix_web::get("/logo/{platform}.svg")]
+pub async fn logo(path: web::Path<String>) -> impl Responder {
+    let path = format!("public/logo/{}.svg", path.to_owned());
+    match std::fs::read_to_string(&path) {
+        Ok(svg) => HttpResponse::Ok()
+            .append_header((header::CONTENT_TYPE, "image/svg+xml"))
+            .body(svg),
+        Err(_) => HttpResponse::NotFound().body("Not found"),
+    }
 }
 
 #[actix_web::get("/chat.ws")]

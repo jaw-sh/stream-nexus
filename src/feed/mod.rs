@@ -31,7 +31,8 @@ impl Feed {
             }
         }
 
-        self.tab.set_storage("SNEED_MESSAGES_READ_AT", self.last_message_time)?;
+        self.tab
+            .set_storage("SNEED_MESSAGES_READ_AT", self.last_message_time)?;
         Ok(())
     }
 }
@@ -53,10 +54,16 @@ pub trait Feeder {
         if last_set_time <= feed.last_message_time {
             return Ok(Vec::new());
         }
-        
+
         let message_json: String = tab.get_storage("SNEED_CHAT_MESSAGES")?;
-        let messages: Vec<Message> = serde_json::from_str(&message_json).expect("Heckin' parser error!");
-        
+        let messages: Vec<Message> = match serde_json::from_str(&message_json) {
+            Ok(messages) => messages,
+            Err(err) => {
+                log::error!("Could not deserialize messages: {}", err);
+                Vec::new()
+            }
+        };
+
         //for message in &messages {
         //    log::info!("{}", message.to_console_msg());
         //}

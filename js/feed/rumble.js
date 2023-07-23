@@ -34,13 +34,21 @@ window.SNEED_GET_CHAT_CONTAINER = () => {
 // </div>
 // </li>
 
-window.SNEED_OBSERVE_MUTATIONS = (mutation) => {
-    let messages = [];
-    
-    mutation.addedNodes.forEach((node) => {
+window.SNEED_SCRAPE_EXISTING_MESSAGES = () => {
+    const nodes = document.querySelector(".sneed-chat-container .chat-history--row");
+
+    if (nodes.length > 0) {
+        window.SNEED_ADD_MESSAGES(window.SNEED_RECEIVE_MESSAGE_NODES(nodes));
+    }
+};
+
+window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
+    const messages = [];
+    nodes.forEach((node) => {
         let message = window.SNEED_GET_MESSAGE_DUMMY();
         message.platform = "Rumble";
         message.received_at = Date.now(); // Rumble provides no information.
+        message.avatar = node.querySelector(".chat-history--user-avatar").src ?? message.avatar;
 
         if (node.classList.contains("chat-history--rant")) {
             message.username = node.querySelector(".chat-history--rant-username").innerText;
@@ -70,6 +78,5 @@ window.SNEED_OBSERVE_MUTATIONS = (mutation) => {
 
         messages.push(message);
     });
-
     return messages;
 };

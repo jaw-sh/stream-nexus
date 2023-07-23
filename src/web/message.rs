@@ -1,6 +1,5 @@
 use actix::{Message, Recipient};
 
-
 /// Client hello message.
 pub struct Connect {
     pub recipient: Recipient<Reply>,
@@ -26,7 +25,6 @@ pub struct Reply(pub String);
 impl Message for Reply {
     type Result = ();
 }
-
 
 /// Content message.
 pub struct Content {

@@ -149,10 +149,17 @@ window.SNEED_GET_CHAT_CONTAINER = () => {
 // </div>
 // </yt-live-chat-paid-message-renderer>
 
-window.SNEED_OBSERVE_MUTATIONS = (mutation) => {
-    let messages = [];
-    
-    mutation.addedNodes.forEach((node) => {
+window.SNEED_SCRAPE_EXISTING_MESSAGES = () => {
+    const nodes = document.querySelector(".sneed-chat-container .yt-live-chat-item-list-renderer");
+
+    if (nodes.length > 0) {
+        window.SNEED_ADD_MESSAGES(window.SNEED_RECEIVE_MESSAGE_NODES(nodes));
+    }
+};
+
+window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
+    const messages = [];
+    nodes.forEach((node) => {
         let message = window.SNEED_GET_MESSAGE_DUMMY();
         message.platform = "YouTube";
         message.received_at = Date.now(); // Rumble provides no information.
@@ -164,7 +171,7 @@ window.SNEED_OBSERVE_MUTATIONS = (mutation) => {
         if (node.tagName === "yt-live-chat-paid-message-renderer") {
             const dono = node.querySelector("purchase-amount").innerText;
             message.is_premium = true;
-            message.amount = Number(dono.replace(/[^0-9.-]+/g,""));
+            message.amount = Number(dono.replace(/[^0-9.-]+/g, ""));
             message.currency = "USD"; // ## TODO ## YT superchats are MANY currencies.
         }
 
@@ -189,14 +196,13 @@ window.SNEED_OBSERVE_MUTATIONS = (mutation) => {
                 case "moderator": message.is_mod = true; break;
                 case "verified": message.is_verified = true; break;
                 case "member": message.is_sub = true; break;
-                
+
             }
             // I don't think YouTuber staff will ever use live chat?
         });
-        
+
 
         messages.push(message);
     });
-
     return messages;
 };

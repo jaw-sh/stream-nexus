@@ -58,18 +58,29 @@ window.SNEED_GET_CHAT_CONTAINER = () => {
 //    </div>
 // </li>
 
-window.SNEED_OBSERVE_MUTATIONS = (mutation) => {
+window.SNEED_SCRAPE_EXISTING_MESSAGES = () => {
+    const nodes = document.querySelector(".sneed-chat-container .livestream__comment");
+
+    if (nodes.length > 0) {
+        window.SNEED_ADD_MESSAGES(window.SNEED_RECEIVE_MESSAGE_NODES(nodes));
+    }
+};
+
+window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
     const messages = [];
-    
-    mutation.addedNodes.forEach((node) => {
+    nodes.forEach((node) => {
         const message = window.SNEED_GET_MESSAGE_DUMMY();
         message.platform = "Odysee";
         message.sent_at = Date.parse(node.querySelector(".date_time").getAttribute("title"));
         message.received_at = Date.now();
 
-        message.avatar = node.querySelector(".channel-thumbnail__custom").getAttribute("src");
+        // in strange conditions this can be null, I do not know why.
+        const avatar = node.querySelector(".channel-thumbnail__custom")?.getAttribute("src");
+        if (typeof avatar === "string") {
+            message.avatar = node.querySelector(".channel-thumbnail__custom")?.getAttribute("src");
+        }
         message.username = node.querySelector(".comment__author").innerText;
-        message.message = node.querySelector(".livestream-comment__text p").innerHTML;
+        message.message = node.querySelector(".livestream-comment__text").innerText;
 
         if (node.classList.contains("livestream__comment--hyperchat")) {
             message.is_premium = true;
@@ -88,6 +99,5 @@ window.SNEED_OBSERVE_MUTATIONS = (mutation) => {
 
         messages.push(message);
     });
-
     return messages;
 };

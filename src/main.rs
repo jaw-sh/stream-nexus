@@ -4,7 +4,7 @@ mod feed;
 mod message;
 mod web;
 
-use actix::Actor;
+use actix::{Actor, Addr};
 use actix_web::{rt, App, HttpServer};
 use anyhow::{Error, Result};
 use headless_chrome::{Browser, LaunchOptions};
@@ -36,72 +36,103 @@ async fn main() -> Result<(), Error> {
     rt::spawn(server);
 
     // don't let _browser be unset or it will close the window.
-    let (_browser, mut feeds) = start_browser().await?;
+    let mut feeds = start_browser().await?;
 
     // Open first tab
     //browser.get_tabs().lock().into_iter().next().unwrap().first_mut().unwrap().navigate_to("http://127.0.0.1:1350")?.bring_to_front()?;
 
     loop {
-        for feed in &mut feeds {
-            let messages = match feed.feeder.get_messages(feed, feed.tab.clone()) {
-                Ok(messages) => messages,
-                Err(err) => {
-                    log::error!("Could not get messages from feed: {}", err);
-                    continue;
-                }
-            };
-            if let Err(err) = feed.set_last_message_time_from_messages(&messages) {
-                log::error!("Could not set last message time from messages: {}", err);
-            }
+        let mut futs = Vec::new();
 
-            for message in messages {
-                if let Err(err) = chat
-                    .send(ChatMessage {
-                        chat_message: message,
-                    })
-                    .await
-                {
-                    log::error!("Could not send message to chat server: {}", err);
+        feeds.into_iter().for_each(|feed| {
+            futs.push(rt::spawn(get_messages(feed, chat.clone())));
+        });
+
+        feeds = Vec::new();
+        for pres in futures::future::join_all(futs).await {
+            match pres {
+                Ok(feed_res) => match feed_res {
+                    Ok(feed) => {
+                        feeds.push(feed);
+                    }
+                    Err(err) => {
+                        log::error!("Could not get messages from feed: {}", err);
+                    }
+                },
+                Err(err) => {
+                    log::error!("Could not await messages from feed: {}", err);
                 }
             }
         }
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(25)).await;
     }
 }
 
-async fn start_browser() -> Result<(Browser, Vec<Feed>), Error> {
+async fn get_messages(mut feed: Feed, chat: Addr<ChatServer>) -> Result<Feed, Error> {
+    let messages = match feed.feeder.get_messages(&feed, feed.tab.clone()) {
+        Ok(messages) => messages,
+        Err(err) => {
+            log::error!("Could not get messages from feed: {}", err);
+            return Err(err);
+        }
+    };
+    if let Err(err) = feed.set_last_message_time_from_messages(&messages) {
+        log::error!("Could not set last message time from messages: {}", err);
+    }
+
+    for message in messages {
+        if let Err(err) = chat
+            .send(ChatMessage {
+                chat_message: message,
+            })
+            .await
+        {
+            log::error!("Could not send message to chat server: {}", err);
+        }
+    }
+
+    Ok(feed)
+}
+
+async fn start_browser() -> Result<Vec<Feed>, Error> {
     log::info!("Launching Browser for SNEEDing");
 
-    let launch_options = LaunchOptions::default_builder()
-        .headless(false)
-        .window_size(Some((600, 600)))
-        .path(Some(std::path::PathBuf::from("/usr/bin/brave")))
-        .build()?;
+    let launch_options = || {
+        LaunchOptions::default_builder()
+            .headless(false)
+            .window_size(Some((600, 600)))
+            .path(Some(std::path::PathBuf::from("/usr/bin/brave")))
+            .build()
+    };
 
-    let browser = Browser::new(launch_options).expect("Browser did not launch.");
-    log::debug!("Browser launched!");
-
+    let browser = Browser::new(launch_options()?).expect("Browser did not launch.");
     let odysee = Feed {
-        url: "https://odysee.com/$/popout/@RT:fd/livestream_RT:d".to_string(),
+        url: "https://odysee.com/$/popout/@SaltyCracker:a/072323:7".to_string(),
         tab: browser.new_tab()?,
+        browser,
         feeder: Box::new(feed::OdyseeFeeder {}),
         last_message_time: 0,
     };
+
+    let browser = Browser::new(launch_options()?).expect("Browser did not launch.");
     let rumble = Feed {
-        url: "https://rumble.com/v31nt4s-killstream-leafyisqueer-pedo-cult-america-first-on-fire-jobless-jonny-speci.html".to_string(),
+        url: "https://rumble.com/v31wmci-were-all-dead-again-reeeeee-stream-07-23-23.html"
+            .to_string(),
         tab: browser.new_tab()?,
+        browser,
         feeder: Box::new(feed::RumbleFeeder {}),
         last_message_time: 0,
     };
+
+    let browser = Browser::new(launch_options()?).expect("Browser did not launch.");
     let youtube = Feed {
         url: "https://www.youtube.com/live_chat?is_popout=1&v=jfKfPfyJRdk".to_string(),
         tab: browser.new_tab()?,
+        browser,
         feeder: Box::new(feed::YouTubeFeeder {}),
         last_message_time: 0,
     };
 
-    let feeds = vec![rumble, youtube];
+    let feeds = vec![odysee, rumble, youtube];
     let mut futs = Vec::new();
 
     for feed in feeds {
@@ -129,5 +160,5 @@ async fn start_browser() -> Result<(Browser, Vec<Feed>), Error> {
         .map(|f| f.expect("JoinHandle for Feeder failed."))
         .collect();
 
-    Ok((browser, feeders))
+    Ok(feeders)
 }

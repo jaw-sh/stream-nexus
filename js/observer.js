@@ -48,6 +48,10 @@ window.SNEED_CHAT_BIND = () => {
         setTimeout(window.SNEED_CHAT_BIND, 1000);
         return false;
     }
+    if (document.querySelector(".sneed-chat-container") !== null) {
+        console.log("Chat container already bound, aborting.");
+        return false;
+    }
 
     targetNode.classList.add("sneed-chat-container");
 

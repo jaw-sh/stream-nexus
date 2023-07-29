@@ -25,6 +25,7 @@ async fn main() -> Result<(), Error> {
             .app_data(chat_for_server.clone())
             .service(web::javascript)
             .service(web::stylesheet)
+            .service(web::colors)
             .service(web::index)
             .service(web::websocket)
             .service(web::logo)

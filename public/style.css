@@ -1,4 +1,3 @@
-
 * {
     box-sizing: border-box;
 }
@@ -26,7 +25,7 @@ main {
     position: relative;
     overflow: hidden;
 
-    background: rgba(0,0,0,0.75);
+    background: var(--msg-bg, rgba(0, 0, 0, 0.75));
     border-radius: 2em 0 0 2em;
     margin: 0.2em 0;
     padding: 0.5em;
@@ -34,7 +33,7 @@ main {
     font-family: "Open Sans";
     font-size: 16px;
     line-height: 16px;
-    color: #ccc;
+    color: var(--msg-fg, #ccc);
 }
 .msg-user {
     font-size: 90%;
@@ -50,13 +49,13 @@ main {
     box-sizing:  border-box;
 }
     .msg--p-Odysee .msg-avatar {
-        border-color: rgb(166, 10, 67, 0.33);
+        border-color: var(--odysee-avatar, rgba(166, 10, 67, 0.33));
     }
     .msg--p-Rumble .msg-avatar {
-        border-color: rgba(133, 199, 66, 0.33);
+        border-color: var(--rumble-avatar, rgba(133, 199, 66, 0.33));
     }
     .msg--p-YouTube .msg-avatar {
-        border-color: rgba(255, 0, 0, 0.33);
+        border-color: var(--yt-avatar, rgba(255, 0, 0, 0.33));
     }
 
 .msg-text {
@@ -67,7 +66,7 @@ main {
         vertical-align: top;
     }
     .msg-text a {
-        color: #ccc;
+        color: var(--msg-url, #ccc);
         font-weight: normal;
         text-decoration: none;
     }

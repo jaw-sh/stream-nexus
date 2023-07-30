@@ -1,9 +1,11 @@
 mod odysee;
 mod rumble;
+mod twitch;
 mod youtube;
 
 pub use odysee::OdyseeFeeder;
 pub use rumble::RumbleFeeder;
+pub use twitch::TwitchFeeder;
 pub use youtube::YouTubeFeeder;
 
 use crate::message::Message;

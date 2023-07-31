@@ -52,7 +52,7 @@ window.SNEED_GET_CHAT_CONTAINER = () => {
 // </div>
 
 window.SNEED_SCRAPE_EXISTING_MESSAGES = () => {
-    const nodes = document.querySelectorAll(".sneed-chat-container .chat-line__message");
+    const nodes = document.querySelector(".sneed-chat-container .chat-line__message");
 
     if (nodes.length > 0) {
         window.SNEED_ADD_MESSAGES(window.SNEED_RECEIVE_MESSAGE_NODES(nodes));
@@ -62,20 +62,32 @@ window.SNEED_SCRAPE_EXISTING_MESSAGES = () => {
 window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
     const messages = [];
     nodes.forEach((node) => {
-        const message = window.SNEED_GET_MESSAGE_DUMMY();
-
+        let message = window.SNEED_GET_MESSAGE_DUMMY();
         message.platform = "Twitch";
         message.received_at = Date.now();
 
-        message.username = node.querySelector(".chat-author__display-name").innerText;
-        message.message = node.querySelector("span[data-a-target='chat-message-text']").innerText;
+        // textContent is quicker than innerText.
+        message.username = node.querySelector(".chat-author__display-name").textContent;
+
+        // Chat messages get split into chunks when emotes are present.
+        // Unwrap and combine relevant content into parent span.
+        const msg_body = node.querySelector("[data-a-target='chat-line-message-body']");
+
+        msg_body.querySelectorAll(".mention-fragment, .text-fragment").forEach((txt) => txt.replaceWith(txt.textContent));
+        msg_body.querySelectorAll("[data-test-selector='emote-button']").forEach((emote) => {
+            const img = emote.querySelector(".chat-image");
+            img.removeAttribute("srcset");
+            emote.replaceWith(img);
+        });
+
+        message.message = msg_body.innerHTML;
 
         if (node.classList.contains("channel-points-reward-line__icon")) {
             message.is_premium = true;
 
             // A lot of weird custom units. Alt-text on the icon helps.
             message.currency = node.querySelector(".channel-points-icon__image").getAttribute("alt");
-            message.amount = node.querySelector(".user-notice-line div:first-child").innerText;
+            message.amount = node.querySelector(".user-notice-line div:first-child").textContent;
         }
 
         node.querySelectorAll(".chat-badge").forEach((badge) => {

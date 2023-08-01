@@ -91,12 +91,12 @@ window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
         }
 
         node.querySelectorAll(".chat-badge").forEach((badge) => {
-            const label = badge.getAttribute("aria-label").replace(/ badge$/, '');
+            const label = badge.getAttribute("alt");
             switch (label) {
                 case "Moderator": message.is_mod = true; break;
                 case "Prime Gaming":
                 // Sub tiers necessitate this ugly hack. A better way probably exists.
-                case /Subscriber/.test(label):
+                case /Subscriber/.test(label) && label:
                     message.is_sub = true;
                     break;
                 case "Verified": message.is_verified = true; break;

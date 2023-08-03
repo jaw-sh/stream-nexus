@@ -162,7 +162,7 @@ window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
     nodes.forEach((node) => {
         let message = window.SNEED_GET_MESSAGE_DUMMY();
         message.platform = "YouTube";
-        message.received_at = Date.now(); // Rumble provides no information.
+        message.received_at = Date.now(); // YT provides no information.
 
         message.avatar = node.querySelector("yt-img-shadow img").src;
         message.username = node.querySelector("#author-name").innerText;
@@ -175,7 +175,7 @@ window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
             message.currency = "USD"; // ## TODO ## YT superchats are MANY currencies.
         }
 
-        // The owner and subs copme from a top-level [author-type].
+        // The owner and subs come from a top-level [author-type].
         const authorType = node.getAttribute("author-type");
         if (typeof authorType === "string") {
             if (authorType.includes("owner")) {

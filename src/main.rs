@@ -25,6 +25,7 @@ async fn main() -> Result<(), std::io::Error> {
             .app_data(chat_for_server.clone())
             .service(web::javascript)
             .service(web::stylesheet)
+            .service(web::colors)
             .service(web::index)
             .service(web::websocket)
             .service(web::logo)
@@ -88,6 +89,15 @@ async fn start_browser() -> Result<Vec<Feed>, Error> {
         tab: browser.new_tab()?,
         browser,
         feeder: Box::new(feed::RumbleFeeder {}),
+        last_message_time: 0,
+    };
+
+    let browser = Browser::new(launch_options()?).expect("Browser did not launch.");
+    let twitch = Feed {
+        url: "https://www.twitch.tv/popout/nyanners/chat?popout=".to_string(),
+        tab: browser.new_tab()?,
+        browser,
+        feeder: Box::new(feed::TwitchFeeder {}),
         last_message_time: 0,
     };
 

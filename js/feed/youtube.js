@@ -4,6 +4,64 @@
 // @description Stream Nexus userscript for Rumble chat.
 // @license BSD-3-Clause
 // @author Joshua Moon <josh@josh.rs>
+
+window.SNEED_SCRAPE_EXISTING_MESSAGES = () => {
+    const nodes = document.querySelector(".sneed-chat-container .yt-live-chat-item-list-renderer");
+
+    if (nodes.length > 0) {
+        window.SNEED_ADD_MESSAGES(window.SNEED_RECEIVE_MESSAGE_NODES(nodes));
+    }
+};
+
+window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
+    const messages = [];
+    nodes.forEach((node) => {
+        let message = window.SNEED_GET_MESSAGE_DUMMY();
+        message.platform = "YouTube";
+        message.received_at = Date.now(); // Rumble provides no information.
+
+        message.avatar = node.querySelector("yt-img-shadow img").src;
+        message.username = node.querySelector("#author-name").innerText;
+        message.message = node.querySelector("#message").innerHTML;
+
+        if (node.tagName === "yt-live-chat-paid-message-renderer") {
+            const dono = node.querySelector("purchase-amount").innerText;
+            message.is_premium = true;
+            message.amount = Number(dono.replace(/[^0-9.-]+/g, ""));
+            message.currency = "USD"; // ## TODO ## YT superchats are MANY currencies.
+        }
+
+        // The owner and subs copme from a top-level [author-type].
+        const authorType = node.getAttribute("author-type");
+        if (typeof authorType === "string") {
+            if (authorType.includes("owner")) {
+                message.is_owner = true;
+            }
+            if (authorType.includes("moderator")) {
+                message.is_mod = true;
+            }
+            if (authorType.includes("member")) {
+                message.is_sub = true;
+            }
+        }
+
+        // "Verified" is exclusively denominated by a badge, but other types can be found that way too.
+        // Whatever, just check the badges too.
+        node.querySelectorAll("yt-live-chat-author-badge-renderer.yt-live-chat-author-chip").forEach((badge) => {
+            switch (badge.getAttribute("type")) {
+                case "moderator": message.is_mod = true; break;
+                case "verified": message.is_verified = true; break;
+                case "member": message.is_sub = true; break;
+
+            }
+            // I don't think YouTuber staff will ever use live chat?
+        });
+
+
+        messages.push(message);
+    });
+    return messages;
+};
 // @homepageURL https://github.com/jaw-sh/stream-nexus
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
 // @include https://www.youtube.com/watch?v=*

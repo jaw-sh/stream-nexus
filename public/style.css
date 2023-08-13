@@ -1,4 +1,3 @@
-
 * {
     box-sizing: border-box;
 }
@@ -26,7 +25,7 @@ main {
     position: relative;
     overflow: hidden;
 
-    background: rgba(0,0,0,0.75);
+    background: var(--msg-bg, rgba(0, 0, 0, 0.75));
     border-radius: 2em 0 0 2em;
     border: 1px solid transparent;
     border-right: none;
@@ -37,7 +36,7 @@ main {
     font-family: "Open Sans";
     font-size: 16px;
     line-height: 16px;
-    color: #ccc;
+    color: var(--msg-fg, #ccc);
 }
     .msg--b-owner {
         border-color: gold;
@@ -83,18 +82,18 @@ main {
         border-radius: 0;
     }
     .msg--p-Odysee .msg-avatar {
-        --brand-color: rgb(166, 10, 67, 1);
+        --brand-color: var(--odysee-brand, rgb(166, 10, 67, 1));
     }
     .msg--p-Rumble .msg-avatar {
-        --brand-color: rgba(133, 199, 66, 1);
+        --brand-color: var(--rumble-brand, rgba(133, 199, 66, 1));
     }
     .msg--p-YouTube .msg-avatar {
-        --brand-color: rgba(255, 0, 0, 1);
+        --brand-color: var(--youtube-brand, rgba(255, 0, 0, 1));
     }
     .msg--p-VK .msg-avatar {
-        --brand-color: rgb(255, 43, 66, 1);
+        --brand-color: var(--vk-brand, rgb(255, 43, 66, 1));
         /* drop shadow mimics the VK logo a bit. */
-        box-shadow: 2px 0px rgb(0, 119, 255, 0.66);
+        box-shadow: 2px 0px var(--vk--brand-shadow, rgb(0, 119, 255, 0.66));
     }
 
 .msg-text {
@@ -105,7 +104,7 @@ main {
         vertical-align: top;
     }
     .msg-text a {
-        color: #ccc;
+        color: var(--msg-url, #ccc);
         font-weight: normal;
         text-decoration: none;
     }

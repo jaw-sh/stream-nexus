@@ -1,0 +1,19 @@
+/* User-defined color scheme */
+
+/*
+Example:
+
+:root {
+    --msg-bg: rgba(0, 0, 0, 0.75);
+    --msg-fg: #ccc;
+    --msg-url: #ccc;
+
+    --odysee-avatar: rgba(166, 10, 67, 0.33);
+    --rumble-avatar: rgba(133, 199, 66, 0.33);
+    --yt-avatar: rgba(255, 0, 0, 0.33);
+}
+*/
+
+:root {
+
+}

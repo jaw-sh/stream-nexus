@@ -38,6 +38,13 @@ pub async fn stylesheet() -> impl Responder {
         .body(std::fs::read_to_string("public/style.css").unwrap())
 }
 
+#[actix_web::get("/user-colors.css")]
+pub async fn colors() -> impl Responder {
+    HttpResponse::Ok()
+        .append_header((header::CONTENT_TYPE, "text/css"))
+        .body(std::fs::read_to_string("public/user-colors.css").unwrap())
+}
+
 #[actix_web::get("/logo/{platform}.svg")]
 pub async fn logo(path: web::Path<String>) -> impl Responder {
     let path = format!("public/logo/{}.svg", path.to_owned());

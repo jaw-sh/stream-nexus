@@ -14,7 +14,7 @@
 
     // Connection opened
     socket.addEventListener("open", (event) => {
-        socket.send("Hello Server!");
+        console.log("[SNEED] Connection established.");
     });
 
     // Listen for messages
@@ -35,7 +35,7 @@
     });
 
     socket.addEventListener("close", (event) => {
-        console.log("Socket has closed. Attempting reconnect.", event.reason);
+        console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
         setTimeout(function () { reconnect(); }, 3000);
     });
 

@@ -1,7 +1,244 @@
-window.SNEED_GET_CHAT_CONTAINER = () => {
-    // The YT DOM is a mess. This is specific.
-    return document.querySelector(".yt-live-chat-item-list-renderer#items");
-};
+// ==UserScript==
+// @name S.N.E.E.D. (YouTube)
+// @version 1.0.0
+// @description Stream Nexus userscript for Rumble chat.
+// @license BSD-3-Clause
+// @author Joshua Moon <josh@josh.rs>
+// @homepageURL https://github.com/jaw-sh/stream-nexus
+// @supportURL https://github.com/jaw-sh/stream-nexus/issues
+// @include https://www.youtube.com/watch?v=*
+// @include https://www.youtube.com/live/*
+// @include https://www.youtube.com/live_chat?is_popout=1&v=*
+// @connect *
+// @grant GM_getValue
+// @grant GM_setValue
+// @grant GM_deleteValue
+// @grant GM_listValues
+// @grant GM_addValueChangeListener
+// @grant GM_openInTab
+// @grant GM_xmlhttpRequest
+// @grant GM.getValue
+// @grant GM.setValue
+// @grant GM.deleteValue
+// @grant GM.listValues
+// @grant GM.openInTab
+// @grant GM.xmlHttpRequest
+// @run-at document-start
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    //
+    // Socket Logic
+    //
+    let CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
+    const reconnect = () => {
+        // check if socket is connected
+        if (CHAT_SOCKET.readyState === WebSocket.OPEN || CHAT_SOCKET.readyState === WebSocket.CONNECTING) {
+            return true;
+        }
+        else {
+            // attempt to connect if disconnected
+            CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
+        }
+    };
+
+    // Connection opened
+    CHAT_SOCKET.addEventListener("open", (event) => {
+        console.log("[SNEED] Socket connection established.");
+        SEND_MESSAGES(MESSAGE_QUEUE);
+        MESSAGE_QUEUE = [];
+    });
+
+    CHAT_SOCKET.addEventListener("close", (event) => {
+        console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
+        setTimeout(function () { reconnect(); }, 3000);
+    });
+
+    CHAT_SOCKET.addEventListener("error", (event) => {
+        console.log("[SNEED] Socket has errored. Closing.", event.reason);
+        alert("The SNEED chat socket could not connect. Ensure the web server is running and that Brave shields are off.");
+        socket.close();
+    });
+
+    //
+    // Chat Messages
+    //
+    let MESSAGE_QUEUE = [];
+
+    const CREATE_MESSAGE = () => {
+        return {
+            id: crypto.randomUUID(),
+            platform: "IDK",
+            username: "DUMMY_USER",
+            message: "",
+            sent_at: Date.now(), // System timestamp for display ordering.
+            received_at: Date.now(), // Local timestamp for management.
+            avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
+            is_premium: false,
+            amount: 0,
+            currency: "ZWL",
+            is_verified: false,
+            is_sub: false,
+            is_mod: false,
+            is_owner: false,
+            is_staff: false,
+        };
+    };
+
+    const BIND_MUTATION_OBSERVER = () => {
+        const targetNode = GET_CHAT_CONTAINER();
+        console.log(targetNode);
+
+        if (targetNode === null) {
+            console.log("[SNEED] No chat container found.")
+            return false;
+        }
+
+        if (document.querySelector(".sneed-chat-container") !== null) {
+            console.log("[SNEED] Chat container already bound, aborting.");
+            return false;
+        }
+
+        targetNode.classList.add("sneed-chat-container");
+
+        const observer = new MutationObserver(MUTATION_OBSERVE);
+        observer.observe(targetNode, {
+            childList: true,
+            attributes: false,
+            subtree: false
+        });
+
+        GET_EXISTING_MESSAGES();
+        return true;
+    };
+
+    const MUTATION_OBSERVE = (mutationList, observer) => {
+        for (const mutation of mutationList) {
+            if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+                const messages = HANDLE_MESSAGES(mutation.addedNodes);
+                if (messages.length > 0) {
+                    SEND_MESSAGES(messages);
+                }
+            }
+        }
+    };
+
+    const SEND_MESSAGES = (messages) => {
+        // check if socket is open
+        if (CHAT_SOCKET.readyState === WebSocket.OPEN) {
+            CHAT_SOCKET.send(JSON.stringify(messages));
+        }
+        else {
+            // add to queue if not
+            messages.forEach((message) => {
+                MESSAGE_QUEUE.push(messages);
+            });
+        }
+    };
+
+    setInterval(function () {
+        if (document.querySelector(".sneed-chat-container") === null) {
+            const chatFrameEl = document.querySelector("iframe.ytd-live-chat-frame");
+            // YT-Specific: Enforce live chat.
+            if (YOUTUBE_LIVE_CHAT() === true) {
+                console.log("[SNEED] Binding chat container.")
+                BIND_MUTATION_OBSERVER();
+            }
+        }
+    }, 1000);
+
+
+    //
+    // Specific Implementations
+    //
+
+    const YOUTUBE_LIVE_CHAT = () => {
+        const dropdownEl = document.getElementsByTagName("tp-yt-paper-button");
+        const liveEl = document.querySelectorAll(".item.style-scope.yt-dropdown-menu")[1];
+
+        if (dropdownEl === null || liveEl === null) {
+            console.log("[SNEED] No live chat dropdown menu.");
+            return false;
+        }
+
+        if (dropdownEl.textContent.trim() == liveEl.textContent.trim()) {
+            return true;
+        }
+
+        liveEl.closest("a").click();
+        console.log("[SNEED] Live chat activated. Eat it, Neal!");
+    }
+
+    const GET_CHAT_CONTAINER = () => {
+        return document.querySelector(".yt-live-chat-item-list-renderer[id='items']");
+    };
+
+    const GET_EXISTING_MESSAGES = () => {
+        console.log("[SNEED] Checking for existing messages.");
+        const nodes = document.querySelector(".sneed-chat-container .yt-live-chat-item-list-renderer");
+
+        if (nodes.length > 0) {
+            const messages = HANDLE_MESSAGES(nodes);
+            if (messages.length > 0) {
+                SEND_MESSAGES(messages);
+            }
+        }
+    }
+
+    const HANDLE_MESSAGES = (nodes) => {
+        const messages = [];
+
+        nodes.forEach((node) => {
+            let message = CREATE_MESSAGE();
+            message.platform = "YouTube";
+            message.received_at = Date.now(); // Rumble provides no information.
+
+            message.avatar = node.querySelector("yt-img-shadow img").src;
+            message.username = node.querySelector("[id='author-name']").innerText;
+            message.message = node.querySelector("[id='message']").innerHTML;
+
+            if (node.tagName === "yt-live-chat-paid-message-renderer") {
+                const dono = node.querySelector("purchase-amount").innerText;
+                message.is_premium = true;
+                message.amount = Number(dono.replace(/[^0-9.-]+/g, ""));
+                message.currency = "USD"; // ## TODO ## YT superchats are MANY currencies.
+            }
+
+            // The owner and subs copme from a top-level [author-type].
+            const authorType = node.getAttribute("author-type");
+            if (typeof authorType === "string") {
+                if (authorType.includes("owner")) {
+                    message.is_owner = true;
+                }
+                if (authorType.includes("moderator")) {
+                    message.is_mod = true;
+                }
+                if (authorType.includes("member")) {
+                    message.is_sub = true;
+                }
+            }
+
+            // "Verified" is exclusively denominated by a badge, but other types can be found that way too.
+            // Whatever, just check the badges too.
+            node.querySelectorAll("yt-live-chat-author-badge-renderer.yt-live-chat-author-chip").forEach((badge) => {
+                switch (badge.getAttribute("type")) {
+                    case "moderator": message.is_mod = true; break;
+                    case "verified": message.is_verified = true; break;
+                    case "member": message.is_sub = true; break;
+
+                }
+                // I don't think YouTube staff will ever use live chat?
+            });
+
+
+            messages.push(message);
+        });
+
+        return messages;
+    };
+})();
 
 //
 // https://www.youtube.com/live/UicP06m9IQY
@@ -148,61 +385,3 @@ window.SNEED_GET_CHAT_CONTAINER = () => {
 //   <div id="inline-action-buttons" class="style-scope yt-live-chat-paid-message-renderer"></div>
 // </div>
 // </yt-live-chat-paid-message-renderer>
-
-window.SNEED_SCRAPE_EXISTING_MESSAGES = () => {
-    const nodes = document.querySelector(".sneed-chat-container .yt-live-chat-item-list-renderer");
-
-    if (nodes.length > 0) {
-        window.SNEED_ADD_MESSAGES(window.SNEED_RECEIVE_MESSAGE_NODES(nodes));
-    }
-};
-
-window.SNEED_RECEIVE_MESSAGE_NODES = (nodes) => {
-    const messages = [];
-    nodes.forEach((node) => {
-        let message = window.SNEED_GET_MESSAGE_DUMMY();
-        message.platform = "YouTube";
-        message.received_at = Date.now(); // Rumble provides no information.
-
-        message.avatar = node.querySelector("yt-img-shadow img").src;
-        message.username = node.querySelector("#author-name").innerText;
-        message.message = node.querySelector("#message").innerHTML;
-
-        if (node.tagName === "yt-live-chat-paid-message-renderer") {
-            const dono = node.querySelector("purchase-amount").innerText;
-            message.is_premium = true;
-            message.amount = Number(dono.replace(/[^0-9.-]+/g, ""));
-            message.currency = "USD"; // ## TODO ## YT superchats are MANY currencies.
-        }
-
-        // The owner and subs copme from a top-level [author-type].
-        const authorType = node.getAttribute("author-type");
-        if (typeof authorType === "string") {
-            if (authorType.includes("owner")) {
-                message.is_owner = true;
-            }
-            if (authorType.includes("moderator")) {
-                message.is_mod = true;
-            }
-            if (authorType.includes("member")) {
-                message.is_sub = true;
-            }
-        }
-
-        // "Verified" is exclusively denominated by a badge, but other types can be found that way too.
-        // Whatever, just check the badges too.
-        node.querySelectorAll("yt-live-chat-author-badge-renderer.yt-live-chat-author-chip").forEach((badge) => {
-            switch (badge.getAttribute("type")) {
-                case "moderator": message.is_mod = true; break;
-                case "verified": message.is_verified = true; break;
-                case "member": message.is_sub = true; break;
-
-            }
-            // I don't think YouTuber staff will ever use live chat?
-        });
-
-
-        messages.push(message);
-    });
-    return messages;
-};

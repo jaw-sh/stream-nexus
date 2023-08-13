@@ -1,4 +1,5 @@
-<div class="msg msg--p-{{ message.platform }}" id="{{ message.id }}" style="order: {{ message.received_at }}">
+<div class="msg {{ message.get_platform_string() }} {{ message.get_badge_string() }}" id="{{ message.id }}"
+    style="order: {{ message.sent_at }}">
     <img src="{{ message.avatar }}" class="msg-avatar" />
     <div class="msg-container">
         <div class="msg-user">{{ message.username }}</div>

@@ -1,3 +1,4 @@
+use crate::message::Message as ChatMessage;
 use actix::{Message, Recipient};
 
 /// Client hello message.
@@ -28,7 +29,7 @@ impl Message for Reply {
 
 /// Content message.
 pub struct Content {
-    pub chat_message: crate::message::Message,
+    pub chat_message: ChatMessage,
 }
 
 impl Message for Content {

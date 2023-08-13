@@ -68,6 +68,35 @@ impl Default for Message {
 }
 
 impl Message {
+    pub fn get_badge_string(&self) -> String {
+        let mut badges = Vec::new();
+        if self.is_verified {
+            badges.push("verified");
+        }
+        if self.is_sub {
+            badges.push("sub");
+        }
+        if self.is_mod {
+            badges.push("mod");
+        }
+        if self.is_owner {
+            badges.push("owner");
+        }
+        if self.is_staff {
+            badges.push("staff");
+        }
+
+        if badges.len() == 0 {
+            return "".to_string();
+        }
+
+        format!("msg--b-{}", badges.join(" msg--b-"))
+    }
+
+    pub fn get_platform_string(&self) -> String {
+        format!("msg--p-{}", self.platform)
+    }
+
     pub fn to_console_msg(&self) -> String {
         format!("[{}] {}: {}", self.platform, self.username, self.message)
     }

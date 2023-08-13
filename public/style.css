@@ -28,6 +28,9 @@ main {
 
     background: rgba(0,0,0,0.75);
     border-radius: 2em 0 0 2em;
+    border: 1px solid transparent;
+    border-right: none;
+    box-sizing: border-box;
     margin: 0.2em 0;
     padding: 0.5em;
 
@@ -36,11 +39,35 @@ main {
     line-height: 16px;
     color: #ccc;
 }
+    .msg--b-owner {
+        border-color: gold;
+    }
+    .msg--b-staff {
+        border-color: red;
+    }
+
 .msg-user {
     font-size: 90%;
     vertical-align: bottom;
     font-weight: bold;
 }
+    .msg--b-sub .msg-user {
+        color: green;
+    }
+    .msg--b-mod .msg-user {
+        color: blue;
+    }
+    .msg--b-verified .msg-user {
+        color: purple;
+    }
+    .msg--b-staff .msg-user {
+        color: red;
+    }
+    .msg--b-owner .msg-user {
+        color: gold;
+    }
+
+
 .msg-avatar {
     height: 2em;
     width: 2em;
@@ -48,15 +75,26 @@ main {
     margin-right: 0.5em;
     border: 2px solid transparent;
     box-sizing:  border-box;
+    background: var(--brand-color);
+    border-color: var(--brand-color);
 }
+    .msg--p-Kick .msg-avatar {
+        --brand-color: transparent;
+        border-radius: 0;
+    }
     .msg--p-Odysee .msg-avatar {
-        border-color: rgb(166, 10, 67, 0.33);
+        --brand-color: rgb(166, 10, 67, 1);
     }
     .msg--p-Rumble .msg-avatar {
-        border-color: rgba(133, 199, 66, 0.33);
+        --brand-color: rgba(133, 199, 66, 1);
     }
     .msg--p-YouTube .msg-avatar {
-        border-color: rgba(255, 0, 0, 0.33);
+        --brand-color: rgba(255, 0, 0, 1);
+    }
+    .msg--p-VK .msg-avatar {
+        --brand-color: rgb(255, 43, 66, 1);
+        /* drop shadow mimics the VK logo a bit. */
+        box-shadow: 2px 0px rgb(0, 119, 255, 0.66);
     }
 
 .msg-text {

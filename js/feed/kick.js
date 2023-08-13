@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name S.N.E.E.D. (Rumble)
+// @name S.N.E.E.D. (Kick)
 // @version 1.0.0
-// @description Stream Nexus userscript for Rumble chat.
+// @description Stream Nexus userscript for Kick chat.
 // @license BSD-3-Clause
 // @author Joshua Moon <josh@josh.rs>
 // @homepageURL https://github.com/jaw-sh/stream-nexus
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
-// @include https://rumble.com/v*.html
-// @include https://rumble.com/chat/popup/*
+// @include https://kick.com/*
+// @include https://kick.com/*/chatroom
 // @connect *
 // @grant GM_getValue
 // @grant GM_setValue
@@ -148,7 +148,7 @@
     //
 
     const GET_CHAT_CONTAINER = () => {
-        return document.getElementById("chat-history-list");
+        return document.querySelector("#chatroom .overflow-y-scroll");
     };
 
     const GET_EXISTING_MESSAGES = () => {
@@ -167,71 +167,83 @@
         const messages = [];
 
         nodes.forEach((node) => {
-            let message = CREATE_MESSAGE();
-            message.platform = "Rumble";
-            message.avatar = node.querySelector(".chat-history--user-avatar").src ?? message.avatar;
+            // Kick actually has its own UUID parameter, generously.
+            switch (node.dataset.chatEntry ?? '') {
+                case 'history_breaker': break;
+                case '': break;
+                default:
+                    let message = CREATE_MESSAGE();
+                    message.id = node.dataset.chatEntry;
+                    message.platform = "Kick";
+                    // Kick has no avatars. I'll just use the favicon.
+                    message.avatar = document.querySelector("link[rel='apple-touch-icon-precomposed'][sizes='144x144']").href;
 
-            if (node.classList.contains("chat-history--rant")) {
-                message.username = node.querySelector(".chat-history--rant-username").innerText;
-                message.message = node.querySelector(".chat-history--rant-text").innerHTML;
-                message.is_premium = true;
-                message.amount = parseFloat(node.querySelector(".chat-history--rant-price").innerText.replace("$", ""));
-                message.currency = "USD"; // Rumble rants are always USD.
-            }
-            else {
-                message.username = node.querySelector(".chat-history--username").innerText;
-                message.message = node.querySelector(".chat-history--message").innerHTML;
-            }
+                    const userEl = node.querySelector(".chat-entry-username");
+                    const textEl = node.querySelector(".chat-entry-content");
+                    const emoteEl = node.querySelector(".chat-emote");
 
-            node.querySelectorAll(".chat-history--user-badge").forEach((badge) => {
-                if (badge.src.includes("moderator")) {
-                    message.is_mod = true;
-                }
-                else if (badge.src.includes("locals") || badge.src.includes("whale")) {
-                    message.is_sub = true;
-                }
-                else if (badge.src.includes("admin")) {
-                    // misnomer: this is the streamer.
-                    message.is_owner = true;
-                }
-                // Rumble staff badge unknown.
-            });
+                    message.username = userEl ? userEl.innerText.trim() : "";
+                    message.message = "";
+                    message.message += textEl ? textEl.innerHTML.trim() : "";
+                    message.message += emoteEl ? emoteEl.outerHTML.trim() : "";
 
-            messages.push(message);
+                    if (userEl === null) {
+                        console.log("No username?", node);
+                    }
+
+                    // Kick badges are not easily identifiable so I'll deal with that later.
+
+                    messages.push(message);
+                    break;
+            };
         });
 
         return messages;
     };
 })();
 
-// <li class="chat-history--row" data-message-user-id="u64 goes here" data-message-id="u64 goes here">
-// <img class="chat-history--user-avatar" src="https://sp.rmbl.ws/many/sub/dir/xxx.jpeg">
-// <div class="chat-history--message-wrapper">
-//   <div class="chat-history--username">
-//     <a target="_blank" href="/user/username" style="color: #e1637f">UserName</a>
-//   </div>
-//   <div class="chat-history--badges-wrapper">
-//     <img class="chat-history--user-badge" src="/i/badges/moderator_48.png" alt="Moderator" title="Moderator"></img>
-//     <a href="/account/publisher-packages"><img class="chat-history--user-badge" src="/i/badges/premium_48.png" alt="Rumble Premium User" title="Rumble Premium User"></a>
-//     <img class="chat-history--user-badge" src="/i/badges/locals_48.png" alt="Sub" title="Sub">
-//     <img class="chat-history--user-badge" src="/i/badges/whale_yellow_48.png" alt="Supporter+" title="Supporter+">
-//     <img class="chat-history--user-badge" src="/i/badges/admin_48.png" alt="Admin" title="Admin">
-//   </div>
-//   <div class="chat-history--message">USER CHAT MESSAGE</div>
-// </div>
-// </li>
 
-// <li class="chat-history--row chat-history--rant" data-message-user-id="x" data-message-id="x">
-// <div class="chat-history--rant" data-level="2">
-//   <div class="chat-history--rant-head">
-//     <div class="chat--profile-pic" style="margin-right: 1rem; background-image: url(&quot;https://sp.rmbl.ws/xxx&quot;);" data-large=""></div>
-//       <div style="display: flex; flex-wrap: wrap; align-items: flex-end">
-//         <a class="chat-history--rant-username" target="_blank" href="/user/xxx">xxx</a>
-//         <div class="chat-history--badges-wrapper"><img class="chat-history--user-badge" src="/i/badges/whale_yellow_48.png" alt="Supporter+" title="Supporter+"></div>
-//         <div class="chat-history--rant-price" style="width: 100%;">$2</div>
-//       </div>
-//     </div>
-//     <div class="chat-history--rant-text">xxx</div>
-//   </div>
-// </div>
-// </li>
+// Kick message (chat emote)
+//
+//<div data-v-5e52272e="" data-chat-entry="90ba6e13-5155-4627-a3d6-e57f88ef2e86" class="mt-0.5">
+//  <div class="chat-entry">
+//    <!---->
+//    <div>
+//      <!---->
+//      <!---->
+//      <span data-v-bb151e01="" class="chat-message-identity">
+//        <span data-v-bb151e01="" class="inline-flex translate-y-[3px]"></span>
+//        <span data-v-b433ad78="" data-v-bb151e01="" class="chat-entry-username" data-chat-entry-user="rsturbo" data-chat-entry-user-id="4425316" style="color: rgb(188, 102, 255);">RSTurbo</span>
+//      </span>
+//      <span class="font-bold text-white">: </span>
+//      <span data-v-89ba08de="">
+//        <div data-v-31c262c8="" data-v-89ba08de="" class="chat-emote-container">
+//          <div data-v-31c262c8="" class="relative">
+//            <img data-v-31c262c8="" data-emote-name="KEKW" data-emote-id="37226" src="https://files.kick.com/emotes/37226/fullsize" alt="KEKW" class="chat-emote"></div>
+//        </div>
+//      </span>
+//      <!---->
+//    </div>
+//    <!---->
+//  </div>
+//</div>
+//
+//<div data-v-5e52272e="" data-chat-entry="90ba6e13-5155-4627-a3d6-e57f88ef2e86" class="mt-0.5">
+//  <div class="chat-entry">
+//    <!---->
+//    <div>
+//      <!---->
+//      <!---->
+//      <span data-v-bb151e01="" class="chat-message-identity">
+//        <span data-v-bb151e01="" class="inline-flex translate-y-[3px]"></span>
+//        <span data-v-b433ad78="" data-v-bb151e01="" class="chat-entry-username" data-chat-entry-user="rsturbo" data-chat-entry-user-id="4425316" style="color: rgb(188, 102, 255);">RSTurbo</span>
+//      </span>
+//      <span class="font-bold text-white">: </span>
+//      <span data-v-89ba08de="" class="chat-entry-content">Its Lil durks</span>
+//      <!---->
+//    </div>
+//    <!---->
+//  </div>
+//</div>
+
+

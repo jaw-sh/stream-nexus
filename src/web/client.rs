@@ -3,6 +3,7 @@ use actix_web_actors::ws;
 use std::time::Instant;
 
 use super::message;
+use super::ChatMessage;
 use super::ChatServer;
 use super::CLIENT_TIMEOUT;
 use super::HEARTBEAT_INTERVAL;
@@ -131,8 +132,22 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatClient {
             ws::Message::Pong(_) => {
                 self.last_heartbeat_at = Instant::now();
             }
-            ws::Message::Text(_) => {
-                log::debug!("Unexpected ChatClient text input.")
+            ws::Message::Text(text) => {
+                match serde_json::from_str::<Vec<crate::message::Message>>(&text) {
+                    Ok(messages) => {
+                        for message in messages {
+                            self.send_or_reply(
+                                ctx,
+                                ChatMessage {
+                                    chat_message: message,
+                                },
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        log::warn!("Error parsing client message: {:?}", err);
+                    }
+                };
             }
             ws::Message::Binary(_) => log::warn!("Unexpected ChatClient binary."),
             ws::Message::Close(reason) => {

@@ -47,42 +47,57 @@ main {
 
 .msg-user {
     font-size: 90%;
-    vertical-align: bottom;
+    vertical-align: top;
     font-weight: bold;
+    margin-top: -4px;
+    margin-bottom: 4px;
 }
     .msg--b-sub .msg-user {
-        color: green;
+        color: rgb(47, 141, 21);
     }
     .msg--b-mod .msg-user {
-        color: blue;
+        color: rgb(25, 124, 237);
     }
     .msg--b-verified .msg-user {
-        color: purple;
+        color: rgb(168, 13, 168);
     }
     .msg--b-staff .msg-user {
-        color: red;
+        color: rgb(255, 52, 52);
     }
     .msg--b-owner .msg-user {
-        color: gold;
+        color: rgb(255, 215, 0);
     }
 
 
 .msg-avatar {
     height: 2em;
     width: 2em;
-    border-radius: 100%;
-    margin-right: 0.5em;
     border: 2px solid transparent;
-    box-sizing:  border-box;
+    border-radius: 100%;
+    box-sizing: border-box;
     background: var(--brand-color);
     border-color: var(--brand-color);
 }
-    .msg--p-Kick .msg-avatar {
+.msg-avatar-border {
+    height: 2em;
+    width: 2em;
+    margin-right: 0.5em;
+    border-radius: 100%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+    .msg--p-Kick .msg-avatar,
+    .msg--p-Kick .msg-avatar-border {
         --brand-color: transparent;
         border-radius: 0;
     }
     .msg--p-Odysee .msg-avatar {
         --brand-color: var(--odysee-brand, rgb(166, 10, 67, 1));
+        border-color: transparent;
+        background: none;
+    }
+    .msg--p-Odysee .msg-avatar-border {
+        background: linear-gradient(45deg, #ef1970 0%, #f23b5c 14%, #f77d35 45%, #fcad18 70%, #fecb07 89%, #ffd600 100%);
     }
     .msg--p-Rumble .msg-avatar {
         --brand-color: var(--rumble-brand, rgba(133, 199, 66, 1));
@@ -92,12 +107,15 @@ main {
     }
     .msg--p-VK .msg-avatar {
         --brand-color: var(--vk-brand, rgb(255, 43, 66, 1));
+    }
+    .msg--p-VK .msg-avatar-border {
         /* drop shadow mimics the VK logo a bit. */
         box-shadow: 2px 0px var(--vk--brand-shadow, rgb(0, 119, 255, 0.66));
     }
 
 .msg-text {
     word-wrap: break-word;
+    vertical-align: bottom;;
 }
     .msg-text img {
         max-height: 1em;

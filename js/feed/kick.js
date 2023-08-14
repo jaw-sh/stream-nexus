@@ -191,7 +191,10 @@
                         console.log("No username?", node);
                     }
 
-                    // Kick badges are not easily identifiable so I'll deal with that later.
+                    // I don't know if these attributes change occasionally or if they're mostly static.
+                    message.is_owner = node.querySelector("[data-v-1c3105ea]") !== null;
+                    message.is_mod = node.querySelector("[data-v-43d962e8]") !== null;
+                    message.is_sub = node.querySelector("[data-v-df7f331e]") !== null;
 
                     messages.push(message);
                     break;

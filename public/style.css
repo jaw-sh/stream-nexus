@@ -115,17 +115,73 @@ main {
 
 .msg-text {
     word-wrap: break-word;
-    vertical-align: bottom;;
+    vertical-align: bottom;
 }
-    .msg-text img {
-        max-height: 1em;
-        vertical-align: top;
+
+.msg-text img {
+    max-height: 1em;
+    vertical-align: top;
+}
+
+.msg-text a {
+    color: var(--msg-url, #ccc);
+    font-weight: normal;
+    text-decoration: none;
+}
+
+#poll-ui {
+    background: var(--msg-bg, rgba(11, 11, 11, 0.95));
+    color: var(--msg-url, #ccc);
+    position: absolute;
+    font-family: "Open Sans";
+    width: 100%;
+    padding: 0.5em;
+    display: none;
+    padding: 0.5em 0.8em 1em 0.8em;
+    border-radius: 0 0 0.8em 0.8em;
+    box-shadow: 0 0 0.5em rgba(0, 0, 0, 0.5);
+}
+
+#poll-ui.fade-in {
+    animation: fade-in 0.5s ease-in-out forwards;
+}
+
+#poll-ui.fade-out {
+    animation: fade-out 0.5s ease-in-out forwards;
+
+}
+
+@keyframes fade-in {
+    from {
+        display: block;
+        opacity: 0;
     }
-    .msg-text a {
-        color: var(--msg-url, #ccc);
-        font-weight: normal;
-        text-decoration: none;
+
+    to {
+        display: block;
+        opacity: 1;
     }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+#poll-ui ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0.5em;
+}
+
+#poll-ui li+li {
+    margin-top: 0.5em;
+}
 
 /*
 .msg::before {

@@ -32,6 +32,10 @@
                 handle_command(message);
             }
 
+            if (message.is_premium || message.amount > 0) {
+                handle_premium(message);
+            }
+
             while (main.children.length > 100) {
                 main.removeChild(main.firstChild);
             }
@@ -51,6 +55,7 @@
 
 var active_poll = null;
 const poll_ui = document.getElementById("poll-ui");
+const superchat_ui = document.getElementById("superchat-ui");
 
 class poll {
     constructor(question, multi_vote, options) {
@@ -69,6 +74,7 @@ class poll {
         poll_ui.style.display = "block";
         poll_ui.classList.remove("fade-out");
         poll_ui.classList.add("fade-in");
+        superchat_ui.classList.add("slide-down");
 
         this.end_timeout = setTimeout(() => {
             this.end_poll();
@@ -79,6 +85,7 @@ class poll {
     end_poll() {
         poll_ui.classList.remove("fade-in");
         poll_ui.classList.add("fade-out");
+        setTimeout(() => { poll_ui.style.display = "none"; }, 500);
         clearTimeout(this.end_timeout);
     }
 
@@ -168,5 +175,61 @@ function handle_command(message) {
             return;
 
         active_poll.handle_vote_message(message);
+    }
+}
+
+function format_donation(message) {
+    const currency_symbols = {
+        "USD": "$",
+        "EUR": "€",
+        "GBP": "£",
+        "CAD": "C$",
+        "AUD": "A$",
+        "JPY": "¥"
+    };
+    let currency = message.currency;
+    if (message.currency in currency_symbols)
+        currency = currency_symbols[message.currency];
+
+    let amount = message.amount.toFixed(2);
+
+    let message_text = message.message;
+    if (message_text.length > 80)
+        message_text = message_text.substring(0, 80).trim() + "...";
+
+    return `<div class="superchat"><div class="superchat-message"><strong>${message.username}</strong> (${currency} ${amount}) <p>${message_text}</p></div><div class="superchat-timeout-bar"></div></div>`;
+}
+
+function handle_premium(message) {
+    if (message.amount <= 0)
+        return; // shouldn't happen, but who knows
+
+    let temp = document.createElement("div");
+    temp.innerHTML = format_donation(message);
+    let el = temp.firstChild;
+    superchat_ui.appendChild(el);
+
+    let progress_bars = superchat_ui.getElementsByClassName("superchat-timeout-bar");
+    let progress = progress_bars[progress_bars.length - 1]; // last bar is the newest one
+
+    const duration = 1000 * 30;
+
+    // add timeout for message
+    setTimeout(() => {
+        if (el.parentNode !== null)
+            superchat_ui.removeChild(el);
+    }, duration);
+
+    // animate width of progress bar
+    progress.animate([
+        { width: "100%" },
+        { width: "0%" }
+    ], {
+        duration: duration,
+        iterations: 1
+    }).play();
+
+    while (superchat_ui.children.length > 5) {
+        superchat_ui.removeChild(superchat_ui.firstChild);
     }
 }

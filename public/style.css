@@ -1,7 +1,9 @@
 * {
     box-sizing: border-box;
 }
-html, body {
+
+html,
+body {
     background: none;
     border: none;
     padding: 0;
@@ -10,6 +12,7 @@ html, body {
     width: 100vw;
     overflow: hidden;
 }
+
 main {
     display: flex;
     height: auto;
@@ -19,6 +22,7 @@ main {
     left: 0;
     right: 0;
 }
+
 .msg {
     display: flex;
     flex-direction: row;
@@ -38,12 +42,14 @@ main {
     line-height: 16px;
     color: var(--msg-fg, #ccc);
 }
-    .msg--b-owner {
-        border-color: gold;
-    }
-    .msg--b-staff {
-        border-color: red;
-    }
+
+.msg--b-owner {
+    border-color: gold;
+}
+
+.msg--b-staff {
+    border-color: red;
+}
 
 .msg-user {
     font-size: 90%;
@@ -52,21 +58,26 @@ main {
     margin-top: -4px;
     margin-bottom: 4px;
 }
-    .msg--b-sub .msg-user {
-        color: rgb(47, 141, 21);
-    }
-    .msg--b-mod .msg-user {
-        color: rgb(25, 124, 237);
-    }
-    .msg--b-verified .msg-user {
-        color: rgb(168, 13, 168);
-    }
-    .msg--b-staff .msg-user {
-        color: rgb(255, 52, 52);
-    }
-    .msg--b-owner .msg-user {
-        color: rgb(255, 215, 0);
-    }
+
+.msg--b-sub .msg-user {
+    color: rgb(47, 141, 21);
+}
+
+.msg--b-mod .msg-user {
+    color: rgb(25, 124, 237);
+}
+
+.msg--b-verified .msg-user {
+    color: rgb(168, 13, 168);
+}
+
+.msg--b-staff .msg-user {
+    color: rgb(255, 52, 52);
+}
+
+.msg--b-owner .msg-user {
+    color: rgb(255, 215, 0);
+}
 
 
 .msg-avatar {
@@ -78,6 +89,7 @@ main {
     background: var(--brand-color);
     border-color: var(--brand-color);
 }
+
 .msg-avatar-border {
     height: 2em;
     width: 2em;
@@ -86,46 +98,182 @@ main {
     overflow: hidden;
     flex-shrink: 0;
 }
-    .msg--p-Kick .msg-avatar,
-    .msg--p-Kick .msg-avatar-border {
-        --brand-color: transparent;
-        border-radius: 0;
-    }
-    .msg--p-Odysee .msg-avatar {
-        --brand-color: var(--odysee-brand, rgb(166, 10, 67, 1));
-        border-color: transparent;
-        background: none;
-    }
-    .msg--p-Odysee .msg-avatar-border {
-        background: linear-gradient(45deg, #ef1970 0%, #f23b5c 14%, #f77d35 45%, #fcad18 70%, #fecb07 89%, #ffd600 100%);
-    }
-    .msg--p-Rumble .msg-avatar {
-        --brand-color: var(--rumble-brand, rgba(133, 199, 66, 1));
-    }
-    .msg--p-YouTube .msg-avatar {
-        --brand-color: var(--youtube-brand, rgba(255, 0, 0, 1));
-    }
-    .msg--p-VK .msg-avatar {
-        --brand-color: var(--vk-brand, rgb(255, 43, 66, 1));
-    }
-    .msg--p-VK .msg-avatar-border {
-        /* drop shadow mimics the VK logo a bit. */
-        box-shadow: 2px 0px var(--vk--brand-shadow, rgb(0, 119, 255, 0.66));
-    }
+
+.msg--p-Kick .msg-avatar,
+.msg--p-Kick .msg-avatar-border {
+    --brand-color: transparent;
+    border-radius: 0;
+}
+
+.msg--p-Odysee .msg-avatar {
+    --brand-color: var(--odysee-brand, rgb(166, 10, 67, 1));
+    border-color: transparent;
+    background: none;
+}
+
+.msg--p-Odysee .msg-avatar-border {
+    background: linear-gradient(45deg, #ef1970 0%, #f23b5c 14%, #f77d35 45%, #fcad18 70%, #fecb07 89%, #ffd600 100%);
+}
+
+.msg--p-Rumble .msg-avatar {
+    --brand-color: var(--rumble-brand, rgba(133, 199, 66, 1));
+}
+
+.msg--p-YouTube .msg-avatar {
+    --brand-color: var(--youtube-brand, rgba(255, 0, 0, 1));
+}
+
+.msg--p-VK .msg-avatar {
+    --brand-color: var(--vk-brand, rgb(255, 43, 66, 1));
+}
+
+.msg--p-VK .msg-avatar-border {
+    /* drop shadow mimics the VK logo a bit. */
+    box-shadow: 2px 0px var(--vk--brand-shadow, rgb(0, 119, 255, 0.66));
+}
 
 .msg-text {
     word-wrap: break-word;
-    vertical-align: bottom;;
+    vertical-align: bottom;
 }
-    .msg-text img {
-        max-height: 1em;
-        vertical-align: top;
+
+.msg-text img {
+    max-height: 1em;
+    vertical-align: top;
+}
+
+.msg-text a {
+    color: var(--msg-url, #ccc);
+    font-weight: normal;
+    text-decoration: none;
+}
+
+#flyout {
+    position: absolute;
+    width: 100%;
+    font-family: "Open Sans";
+}
+
+#superchat-ui {
+    transition: all .2s ease-in-out;
+    width: 100%;
+    top: 0px;
+}
+
+#superchat-ui.slide-down {
+    animation: slide-down 0.5s ease-in-out forwards;
+}
+
+#superchat-ui.slide-up {
+    animation: slide-down 0.5s ease-in-out forwards;
+
+}
+
+.superchat {
+    width: 100%;
+    border-radius: 0.8em 0 0 0.8em;
+    background: var(--superchat-bg, rgba(92, 42, 42, 0.95));
+    animation-duration: 0.5s;
+    animation-name: slide-in;
+    margin-top: 0.5em;
+    overflow: hidden;
+}
+
+.superchat-message {
+    padding: 0.1em 0.1em 0.3em 0.5em;
+}
+
+.superchat-message>p {
+    margin: 0;
+}
+
+.superchat-timeout-bar {
+    height: 0.1em;
+    width: 100%;
+    background: var(--superchat-timeout-bar-bg, rgba(245, 160, 160, 0.986));
+    float: right;
+    right: 0;
+}
+
+#poll-ui,
+.superchat {
+    color: var(--msg-url, #ccc);
+    width: 100%;
+
+    box-shadow: 0 0 0.5em rgba(0, 0, 0, 0.5);
+}
+
+#poll-ui {
+    background: var(--msg-bg, rgba(11, 11, 11, 0.95));
+    display: none;
+    padding: 0.5em 0.8em 1em 0.8em;
+    border-radius: 0 0 0.8em 0.8em;
+}
+
+#poll-ui.fade-in {
+    animation: fade-in 0.5s ease-in-out forwards;
+}
+
+#poll-ui.fade-out {
+    animation: fade-out 0.5s ease-in-out forwards;
+
+}
+
+@keyframes slide-down {
+    from {
+        position: absolute;
     }
-    .msg-text a {
-        color: var(--msg-url, #ccc);
-        font-weight: normal;
-        text-decoration: none;
+
+    to {
+        position: relative;
     }
+}
+
+@keyframes slide-in {
+    from {
+        margin-left: 100%;
+        width: 300%;
+    }
+
+    to {
+        margin-left: 0%;
+        width: 100%;
+    }
+}
+
+@keyframes fade-in {
+    from {
+        display: block;
+        opacity: 0;
+    }
+
+    to {
+        display: block;
+        opacity: 1;
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+        display: none;
+    }
+}
+
+#poll-ui ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0.5em;
+}
+
+#poll-ui li+li {
+    margin-top: 0.5em;
+}
+
 
 /*
 .msg::before {

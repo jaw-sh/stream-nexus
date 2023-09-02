@@ -8,6 +8,7 @@
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
 // @include https://www.youtube.com/watch?v=*
 // @include https://www.youtube.com/live/*
+// @include https://www.youtube.com/live_chat?v=*
 // @include https://www.youtube.com/live_chat?is_popout=1&v=*
 // @connect *
 // @grant GM_getValue
@@ -141,8 +142,11 @@
         if (document.querySelector(".sneed-chat-container") === null) {
             // YT-Specific: Enforce live chat.
             if (YOUTUBE_LIVE_CHAT() === true) {
-                console.log("[SNEED] Binding chat container.")
-                BIND_MUTATION_OBSERVER();
+                const chatContainer = GET_CHAT_CONTAINER();
+                if (chatContainer !== null && !chatContainer.classList.contains("sneed-chat-container")) {
+                    console.log("[SNEED] Binding chat container.");
+                    BIND_MUTATION_OBSERVER();
+                }
             }
         }
     }, 1000);
@@ -152,30 +156,46 @@
     // Specific Implementations
     //
 
+    // Attempts to switch to Live Chat from Top Chat.
+    // Returns TRUE if we can proceed to checking the MutationObserver is wokring.
+    // Returns FALSE if the chat isn't found.
     const YOUTUBE_LIVE_CHAT = () => {
-        const dropdownEl = document.querySelector("tp-yt-paper-button.yt-dropdown-menu");
-        const liveEl = document.querySelectorAll(".item.style-scope.yt-dropdown-menu")[1];
+        const chatContainer = GET_CHAT_CONTAINER();
 
-        if (dropdownEl === null || liveEl === null) {
+        if (chatContainer === null) {
+            console.log("[SNEED] Awaiting live chat container...");
+            return false;
+        }
+
+        const chatApp = chatContainer.closest("yt-live-chat-app");
+        const dropdownEl = chatApp.querySelector("#label.yt-dropdown-menu");
+        const liveEl = chatApp.querySelectorAll("#item-with-badge.yt-dropdown-menu")[1];
+
+        if (dropdownEl === null || liveEl === undefined) {
             console.log("[SNEED] No live chat dropdown menu.");
+            console.log(dropdownEl, liveEl);
             return false;
         }
 
         if (dropdownEl.textContent.trim() == liveEl.textContent.trim()) {
+            // We're already live chat.
             return true;
         }
 
         liveEl.closest("a").click();
         console.log("[SNEED] Live chat activated. Eat it, Neal!");
+        return true;
     }
 
     const GET_CHAT_CONTAINER = () => {
-        return document.querySelector(".yt-live-chat-item-list-renderer[id='items']");
+        const chatFrame = document.querySelector("#chatframe.ytd-live-chat-frame");
+        const targetDoc = chatFrame === null ? document : chatFrame.contentWindow.document;
+        return targetDoc.querySelector("#items.yt-live-chat-item-list-renderer");
     };
 
     const GET_EXISTING_MESSAGES = () => {
         console.log("[SNEED] Checking for existing messages.");
-        const nodes = document.querySelectorAll(".sneed-chat-container .yt-live-chat-item-list-renderer");
+        const nodes = GET_CHAT_CONTAINER().childNodes;
 
         if (nodes.length > 0) {
             const messages = HANDLE_MESSAGES(nodes);

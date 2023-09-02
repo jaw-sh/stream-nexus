@@ -1,3 +1,9 @@
+// ==UserScript==
+// @name S.N.E.E.D. (YouTube)
+// @version 1.0.0
+// @description Stream Nexus userscript for Rumble chat.
+// @license BSD-3-Clause
+// @author Joshua Moon <josh@josh.rs>
 // @homepageURL https://github.com/jaw-sh/stream-nexus
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
 // @include https://www.youtube.com/watch?v=*
@@ -46,7 +52,7 @@
     });
 
     CHAT_SOCKET.addEventListener("close", (event) => {
-        console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
+        console.log("[SNEED] Socket has closed. Attempting reconnect.", event);
         setTimeout(function () { reconnect(); }, 3000);
     });
 
@@ -83,7 +89,6 @@
 
     const BIND_MUTATION_OBSERVER = () => {
         const targetNode = GET_CHAT_CONTAINER();
-        console.log(targetNode);
 
         if (targetNode === null) {
             console.log("[SNEED] No chat container found.")
@@ -134,7 +139,6 @@
 
     setInterval(function () {
         if (document.querySelector(".sneed-chat-container") === null) {
-            const chatFrameEl = document.querySelector("iframe.ytd-live-chat-frame");
             // YT-Specific: Enforce live chat.
             if (YOUTUBE_LIVE_CHAT() === true) {
                 console.log("[SNEED] Binding chat container.")
@@ -149,7 +153,7 @@
     //
 
     const YOUTUBE_LIVE_CHAT = () => {
-        const dropdownEl = document.getElementsByTagName("tp-yt-paper-button");
+        const dropdownEl = document.querySelector("tp-yt-paper-button.yt-dropdown-menu");
         const liveEl = document.querySelectorAll(".item.style-scope.yt-dropdown-menu")[1];
 
         if (dropdownEl === null || liveEl === null) {
@@ -171,7 +175,7 @@
 
     const GET_EXISTING_MESSAGES = () => {
         console.log("[SNEED] Checking for existing messages.");
-        const nodes = document.querySelector(".sneed-chat-container .yt-live-chat-item-list-renderer");
+        const nodes = document.querySelectorAll(".sneed-chat-container .yt-live-chat-item-list-renderer");
 
         if (nodes.length > 0) {
             const messages = HANDLE_MESSAGES(nodes);
@@ -185,6 +189,11 @@
         const messages = [];
 
         nodes.forEach((node) => {
+            const tag = node.tagName.toLowerCase();
+            if (tag != 'yt-live-chat-text-message-renderer' && tag != 'yt-live-chat-paid-message-renderer') {
+                return;
+            }
+
             let message = CREATE_MESSAGE();
             message.platform = "YouTube";
             message.received_at = Date.now(); // Rumble provides no information.
@@ -193,8 +202,8 @@
             message.username = node.querySelector("[id='author-name']").innerText;
             message.message = node.querySelector("[id='message']").innerHTML;
 
-            if (node.tagName === "yt-live-chat-paid-message-renderer") {
-                const dono = node.querySelector("purchase-amount").innerText;
+            if (tag === "yt-live-chat-paid-message-renderer") {
+                const dono = node.querySelector("#purchase-amount").innerText;
                 message.is_premium = true;
                 message.amount = Number(dono.replace(/[^0-9.-]+/g, ""));
                 message.currency = "USD"; // ## TODO ## YT superchats are MANY currencies.
@@ -225,6 +234,10 @@
                 }
                 // I don't think YouTube staff will ever use live chat?
             });
+
+            if (tag == 'yt-live-chat-paid-message-renderer') {
+                console.log("superchat", node);
+            }
 
 
             messages.push(message);
@@ -333,7 +346,7 @@
 //
 //<yt-live-chat-paid-message-renderer class="style-scope yt-live-chat-item-list-renderer" modern="" id="ChwKGkNJLUpqWUx0bTRBREZaMGIxZ0FkWEtvRHh3" allow-animations="" style="--yt-live-chat-paid-message-primary-color: rgba(0,229,255,1); --yt-live-chat-paid-message-secondary-color: rgba(0,184,212,1); --yt-live-chat-paid-message-header-color: rgba(0,0,0,1); --yt-live-chat-paid-message-timestamp-color: rgba(0,0,0,0.5019607843137255); --yt-live-chat-paid-message-color: rgba(0,0,0,1); --yt-live-chat-disable-highlight-message-author-name-color: rgba(0,0,0,0.7019607843137254);"><!--css-build:shady--><!--css-build:shady--><div id="card" class="style-scope yt-live-chat-paid-message-renderer">
 //  <div id="header" class="style-scope yt-live-chat-paid-message-renderer">
-//    
+//
 //    <yt-img-shadow id="author-photo" height="40" width="40" class="style-scope yt-live-chat-paid-message-renderer no-transition" style="background-color: transparent;" loaded=""><!--css-build:shady--><!--css-build:shady-->
 //      <img id="img" draggable="false" class="style-scope yt-img-shadow" alt="" height="40" width="40" src="https://yt4.ggpht.com/ytc/AOPolaSwvFOIx2wDgFqnNL-uiwWhPh-e3-kMRnRx6ymPlg=s64-c-k-c0x00ffffff-no-rj">
 //     </yt-img-shadow>

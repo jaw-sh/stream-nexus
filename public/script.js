@@ -147,7 +147,7 @@ class poll {
 
 function handle_command(message) {
     let msg = message.message;
-    const is_admin = message.username === "madattheinternet";
+    const is_admin = message.classList.contains("msg--b-owner");
 
     if (msg.startsWith("!poll") && is_admin) {
         msg = msg.replace("!poll", "").trim();
@@ -173,7 +173,6 @@ function handle_command(message) {
     else if (msg.startsWith("!vote")) {
         if (active_poll === null)
             return;
-
         active_poll.handle_vote_message(message);
     }
 }

@@ -93,6 +93,40 @@ impl Message {
         format!("msg--b-{}", badges.join(" msg--b-"))
     }
 
+    pub fn get_letter(&self) -> String {
+        self.username.chars().next().unwrap().to_string()
+    }
+
+    pub fn get_paid_string(&self) -> String {
+        if self.is_premium {
+            format!(
+                "msg--t msg--ta-{} msg--tc-{}",
+                self.get_paid_tier(),
+                self.currency
+            )
+        } else {
+            String::new()
+        }
+    }
+
+    pub fn get_paid_tier(&self) -> u8 {
+        if self.amount >= 100.0 {
+            100
+        } else if self.amount >= 50.0 {
+            50
+        } else if self.amount >= 20.0 {
+            20
+        } else if self.amount >= 10.0 {
+            10
+        } else if self.amount >= 5.0 {
+            5
+        } else if self.amount >= 2.0 {
+            2
+        } else {
+            1
+        }
+    }
+
     pub fn get_platform_string(&self) -> String {
         format!("msg--p-{}", self.platform)
     }

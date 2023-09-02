@@ -155,7 +155,8 @@
         console.log("[SNEED] Checking for existing messages.");
         const nodes = document.querySelectorAll(".sneed-chat-container .livestream__comment");
         if (nodes.length > 0) {
-            const messages = HANDLE_MESSAGES(nodes);
+            const list = Array.prototype.slice.call(nodes);
+            const messages = HANDLE_MESSAGES(list.reverse());
             if (messages.length > 0) {
                 SEND_MESSAGES(messages);
             }
@@ -171,12 +172,13 @@
             message.sent_at = Date.parse(node.querySelector(".date_time").getAttribute("title"));
 
             // in strange conditions this can be null, I do not know why.
-            const avatar = node.querySelector(".channel-thumbnail__custom, .freezeframe-img")?.getAttribute("src");
-            if (typeof avatar === "string") {
-                message.avatar = node.querySelector(".channel-thumbnail__custom, .freezeframe-img")?.getAttribute("src");
+            const avatar = node.querySelector(".channel-thumbnail__custom, .freezeframe-img")?.src;
+            if (typeof avatar === "string" && avatar.length > 0) {
+                message.avatar = avatar;
             }
             message.username = node.querySelector(".comment__author").innerText;
-            message.message = node.querySelector(".livestream-comment__text").innerText;
+            const messageEl = node.querySelector(".livestream-comment__text");
+            message.message = messageEl ? messageEl.innerText : "";
 
             if (node.classList.contains("livestream__comment--hyperchat")) {
                 message.is_premium = true;

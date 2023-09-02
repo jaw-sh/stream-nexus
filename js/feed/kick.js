@@ -175,8 +175,9 @@
                     let message = CREATE_MESSAGE();
                     message.id = node.dataset.chatEntry;
                     message.platform = "Kick";
-                    // Kick has no avatars. I'll just use the favicon.
-                    message.avatar = document.querySelector("link[rel='apple-touch-icon-precomposed'][sizes='144x144']").href;
+                    // Kick avatars are not readily available, so use the favicon.
+                    // Removed 1-Sep-23 to make way for letter avatars.
+                    //message.avatar = document.querySelector("link[rel='apple-touch-icon-precomposed'][sizes='144x144']").href;
 
                     const userEl = node.querySelector(".chat-entry-username");
                     const textEl = node.querySelector(".chat-entry-content");

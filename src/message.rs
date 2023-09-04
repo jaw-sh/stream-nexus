@@ -97,6 +97,14 @@ impl Message {
         self.username.chars().next().unwrap().to_string()
     }
 
+    pub fn get_paid_readable_amount(&self) -> String {
+        if self.is_premium {
+            format!("{} {}", self.amount, self.currency)
+        } else {
+            String::new()
+        }
+    }
+
     pub fn get_paid_string(&self) -> String {
         if self.is_premium {
             format!(

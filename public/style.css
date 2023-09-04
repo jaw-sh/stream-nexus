@@ -26,16 +26,18 @@ main {
 .msg {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     position: relative;
     overflow: hidden;
+    z-index: 1;
 
-    background: var(--msg-bg, rgba(0, 0, 0, 0.75));
+    background: var(--message-bg-color, rgba(0, 0, 0, 0.75));
     border-radius: 2em 0 0 2em;
     border: 1px solid transparent;
     border-right: none;
     box-sizing: border-box;
-    margin: 0.2em 0;
-    padding: 0.5em;
+    margin: 0.2rem 0;
+    padding: 0.5rem;
 
     max-height: 10rem;
     overflow: hidden;
@@ -43,8 +45,11 @@ main {
     font-family: "Open Sans";
     font-size: 16px;
     line-height: 18px;
-    color: var(--msg-fg, #ccc);
+    color: var(--message-text-color, #ccc);
 }
+    .msg.msg--t {
+        padding: 0;
+    }
     .msg--b-owner {
         border-color: gold;
     }
@@ -52,12 +57,20 @@ main {
         border-color: red;
     }
 
+.msg-header {
+    display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    flex-direction: row;
+    padding: 0.5rem;
+    background: var(--message-head-color, transparent);
+}
+
 .msg-user {
     font-size: 90%;
     vertical-align: top;
     font-weight: bold;
     margin-top: -4px;
-    margin-bottom: 4px;
 
     white-space: nowrap;
     overflow: hidden;
@@ -136,6 +149,49 @@ main {
         box-shadow: 2px 0px var(--vk--brand-shadow, rgb(0, 119, 255, 0.66));
     }
 
+.msg--t {
+    --message-bg-color: #1565C0;
+    --message-head-color: #1565C0;
+    --message-text-color: #FFFFFF;
+}
+    .msg--ta-2 {
+        --message-bg-color: #00E5FF;
+        --message-head-color: #00B8D4;
+        --message-text-color: #000000;
+    }
+    .msg--ta-5 {
+        --message-bg-color: #0F9D58;
+        --message-head-color: #0A8043;
+        --message-text-color: #000000;
+    }
+    .msg--ta-10 {
+        --message-bg-color: #FFCA28;
+        --message-head-color: #FFB300;
+        --message-text-color: #000000;
+    }
+    .msg--ta-20 {
+        --message-bg-color: #F57C00;
+        --message-head-color: #E65100;
+        --message-text-color: #FFFFFF;
+    }
+    .msg--ta-50 {
+        --message-bg-color: #E91E63;
+        --message-head-color: #C2185B;
+        --message-text-color: #FFFFFF;
+    }
+    .msg--ta-100 {
+        --message-bg-color: #E62117;
+        --message-head-color: #D00000;
+        --message-text-color: #FFFFFF;
+    }
+
+.msg--sticky {
+    position: sticky;
+    /* top: 0; */
+    transition: top 1s ease 0s;
+    z-index: 20;
+}
+
 .msg-letter {
     display: inline-block;
     height: 2rem;
@@ -164,17 +220,23 @@ main {
     text-overflow: ellipsis;
     margin: -2px 0;
 }
-
-.msg-text img {
-    max-height: 1em;
-    vertical-align: top;
-}
-
-.msg-text a {
-    color: var(--msg-url, #ccc);
-    font-weight: normal;
-    text-decoration: none;
-}
+    .msg-text:empty {
+        display: none;
+    }
+    .msg--t .msg-text {
+        width: 100%;
+        padding: 0.5rem;
+        padding-left: 3rem;
+    }
+    .msg-text img {
+        max-height: 1em;
+        vertical-align: top;
+    }
+    .msg-text a {
+        color: var(--msg-url, #ccc);
+        font-weight: normal;
+        text-decoration: none;
+    }
 
 #flyout {
     position: absolute;

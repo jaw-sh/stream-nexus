@@ -225,8 +225,36 @@
             if (tag === "yt-live-chat-paid-message-renderer") {
                 const dono = node.querySelector("#purchase-amount").innerText;
                 message.is_premium = true;
-                message.amount = Number(dono.replace(/[^0-9.-]+/g, ""));
-                message.currency = "USD"; // ## TODO ## YT superchats are MANY currencies.
+                const amt = dono.replace(/[^0-9.-]+/g, "");
+                message.amount = Number(amt);
+                // get index of first number or whitespace in dono
+                //const currency = dono.substring(0, dono.indexOf(" ")).trim();
+                const currency = dono.split(/[0-9 ]/)[0].trim();
+                // ## TODO ## YT superchats are MANY currencies.
+                switch (currency) {
+                    case "$": message.currency = "USD"; break;
+                    case "C$": message.currency = "CAD"; break;
+                    case "A$": message.currency = "AUD"; break;
+                    case "NZ$": message.currency = "NZD"; break;
+                    case "NT$": message.currency = "TWD"; break;
+                    case "£": message.currency = "GBP"; break;
+                    case "€": message.currency = "EUR"; break;
+                    case "₽": message.currency = "RUB"; break;
+                    case "₹": message.currency = "INR"; break;
+                    case "¥": message.currency = "JPY"; break;
+                    case "₩": message.currency = "KRW"; break;
+                    case "₱": message.currency = "PHP"; break;
+                    case "₫": message.currency = "VND"; break;
+                    default:
+                        // Many YT currencies are actually the currency code.
+                        if (currency.length === 3) {
+                            message.currency = currency;
+                        }
+                        else {
+                            console.log("[SNEED] Unknown currency: " + currency);
+                            message.currency = "ZWD";
+                        }
+                }
             }
 
             // The owner and subs copme from a top-level [author-type].

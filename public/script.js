@@ -26,18 +26,23 @@
             let el = document.createElement("div");
             main.appendChild(el);
             el.outerHTML = message.html;
-            el.scrollIntoView();
+            el = document.getElementById(message.id);
 
             if (message.message.startsWith("!")) {
                 handle_command(message);
             }
 
             if (message.is_premium || message.amount > 0) {
-                handle_premium(message);
+                handle_premium(el, message);
             }
 
-            while (main.children.length > 100) {
-                main.removeChild(main.firstChild);
+            while (main.children.length > 200) {
+                for (let i = 0; i < main.children.length; i++) {
+                    if (!main.childNodes[i].classList.contains("msg--sticky")) {
+                        main.childNodes[i].remove();
+                        break;
+                    }
+                }
             }
         }
     });
@@ -147,7 +152,7 @@ class poll {
 
 function handle_command(message) {
     let msg = message.message;
-    const is_admin = message.classList.contains("msg--b-owner");
+    const is_admin = message.is_owner;
 
     if (msg.startsWith("!poll") && is_admin) {
         msg = msg.replace("!poll", "").trim();
@@ -177,58 +182,29 @@ function handle_command(message) {
     }
 }
 
-function format_donation(message) {
-    const currency_symbols = {
-        "USD": "$",
-        "EUR": "€",
-        "GBP": "£",
-        "CAD": "C$",
-        "AUD": "A$",
-        "JPY": "¥"
-    };
-    let currency = message.currency;
-    if (message.currency in currency_symbols)
-        currency = currency_symbols[message.currency];
-
-    let amount = message.amount.toFixed(2);
-
-    let message_text = message.message;
-    if (message_text.length > 80)
-        message_text = message_text.substring(0, 80).trim() + "...";
-
-    return `<div class="superchat"><div class="superchat-message"><strong>${message.username}</strong> (${currency} ${amount}) <p>${message_text}</p></div><div class="superchat-timeout-bar"></div></div>`;
+function handle_premium(node, message) {
+    node.classList.add("msg--sticky");
+    recalculate_premium_positions();
 }
 
-function handle_premium(message) {
-    if (message.amount <= 0)
-        return; // shouldn't happen, but who knows
+function recalculate_premium_positions() {
+    let premium_messages = document.getElementsByClassName("msg--sticky");
+    let top = 5;
+    for (let i = 0; i < premium_messages.length; i++) {
+        top += premium_messages[i].offsetHeight + 5;
+    }
 
-    let temp = document.createElement("div");
-    temp.innerHTML = format_donation(message);
-    let el = temp.firstChild;
-    superchat_ui.appendChild(el);
+    let space = document.body.scrollHeight / 2;
+    if (top > space) {
+        console.log(space, top, space - top);
+        top = space - top;
+    }
+    else {
+        top = 5;
+    }
 
-    let progress_bars = superchat_ui.getElementsByClassName("superchat-timeout-bar");
-    let progress = progress_bars[progress_bars.length - 1]; // last bar is the newest one
-
-    const duration = 1000 * 30;
-
-    // add timeout for message
-    setTimeout(() => {
-        if (el.parentNode !== null)
-            superchat_ui.removeChild(el);
-    }, duration);
-
-    // animate width of progress bar
-    progress.animate([
-        { width: "100%" },
-        { width: "0%" }
-    ], {
-        duration: duration,
-        iterations: 1
-    }).play();
-
-    while (superchat_ui.children.length > 5) {
-        superchat_ui.removeChild(superchat_ui.firstChild);
+    for (let i = 0; i < premium_messages.length; i++) {
+        premium_messages[i].style.top = `${top}px`;
+        top += premium_messages[i].scrollHeight + 5;
     }
 }

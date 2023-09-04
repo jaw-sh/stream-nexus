@@ -1,5 +1,9 @@
 extern crate dotenvy;
+extern crate reqwest;
+extern crate serde;
+extern crate serde_json;
 
+mod exchange;
 mod message;
 mod web;
 
@@ -14,7 +18,12 @@ async fn main() -> Result<(), std::io::Error> {
     dotenvy::dotenv().expect("Could not load .env file");
     env_logger::init();
 
-    let chat = ChatServer::new().start();
+    let chat = ChatServer::new(
+        exchange::fetch_exchange_rates()
+            .await
+            .expect("Failed to fetch exchange rates."),
+    )
+    .start();
     let chat_for_server = chat.clone();
 
     HttpServer::new(move || {

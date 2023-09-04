@@ -225,8 +225,8 @@ main {
     }
     .msg--t .msg-text {
         width: 100%;
-        padding: 0.5rem;
-        padding-left: 3rem;
+        padding: 1rem;
+        padding-top: 0.5rem;
     }
     .msg-text img {
         max-height: 1em;

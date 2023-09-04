@@ -99,7 +99,7 @@ impl Message {
 
     pub fn get_paid_readable_amount(&self) -> String {
         if self.is_premium {
-            format!("{} {}", self.amount, self.currency)
+            format!("{} {}", format!("{:.2}", self.amount), self.currency)
         } else {
             String::new()
         }
@@ -118,17 +118,19 @@ impl Message {
     }
 
     pub fn get_paid_tier(&self) -> u8 {
-        if self.amount >= 100.0 {
+        // https://support.google.com/youtube/answer/7277005?hl=en
+        // Added some flexibility so people get what they pay for.
+        if self.amount >= 99.0 {
             100
-        } else if self.amount >= 50.0 {
+        } else if self.amount >= 49.0 {
             50
-        } else if self.amount >= 20.0 {
+        } else if self.amount >= 19.0 {
             20
-        } else if self.amount >= 10.0 {
+        } else if self.amount >= 9.0 {
             10
-        } else if self.amount >= 5.0 {
+        } else if self.amount >= 4.75 {
             5
-        } else if self.amount >= 2.0 {
+        } else if self.amount >= 1.9 {
             2
         } else {
             1
@@ -140,7 +142,14 @@ impl Message {
     }
 
     pub fn to_console_msg(&self) -> String {
-        format!("[{}] {}: {}", self.platform, self.username, self.message)
+        if self.is_premium {
+            format!(
+                "[{}] [${} {}] ({}): {}",
+                self.platform, self.currency, self.amount, self.username, self.message
+            )
+        } else {
+            format!("[{}] {}: {}", self.platform, self.username, self.message)
+        }
     }
 
     pub fn to_html(&self) -> String {

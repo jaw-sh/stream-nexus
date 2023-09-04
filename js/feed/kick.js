@@ -192,10 +192,16 @@
                         console.log("No username?", node);
                     }
 
-                    // I don't know if these attributes change occasionally or if they're mostly static.
-                    message.is_owner = node.querySelector("[data-v-1c3105ea]") !== null;
-                    message.is_mod = node.querySelector("[data-v-43d962e8]") !== null;
-                    message.is_sub = node.querySelector("[data-v-df7f331e]") !== null;
+                    // Kick's badge system is a total disaster and there is zero consistency.
+                    message.is_owner = node.querySelector("#Badge_Chat_host") !== null; // Consistent?
+                    message.is_verified = node.querySelector("#badge-verified-gradient") !== null; // Consistent?
+                    message.is_mod = node.querySelector("[data-v-fa8cab30]") !== null; // This changes periodically.
+                    // There are many images for this, including custom <img> tags for verified users, and <svg> generics.
+                    //message.is_sub = node.querySelector("[data-v-df7f331e]") !== null;
+
+                    // These are weird Kick-unique things. It's kind of like being knighted by a gambler. 
+                    // #badge-vip-gradient
+                    // #badge-og-gradient-2
 
                     messages.push(message);
                     break;
@@ -205,7 +211,6 @@
         return messages;
     };
 })();
-
 
 // Kick message (chat emote)
 //

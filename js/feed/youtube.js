@@ -233,10 +233,14 @@
                 // ## TODO ## YT superchats are MANY currencies.
                 switch (currency) {
                     case "$": message.currency = "USD"; break;
-                    case "C$": message.currency = "CAD"; break;
+                    case "CA$": message.currency = "CAD"; break;
+                    case "C$": message.currency = "NIO"; break; // I think this is Nicaraguan Cordoba and not Canadian Dollar.
                     case "A$": message.currency = "AUD"; break;
                     case "NZ$": message.currency = "NZD"; break;
                     case "NT$": message.currency = "TWD"; break;
+                    case "R$": message.currency = "BRL"; break;
+                    case "MX$": message.currency = "MXN"; break;
+                    case "HK$": message.currency = "HKD"; break;
                     case "£": message.currency = "GBP"; break;
                     case "€": message.currency = "EUR"; break;
                     case "₽": message.currency = "RUB"; break;

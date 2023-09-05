@@ -169,7 +169,18 @@
         nodes.forEach((node) => {
             let message = CREATE_MESSAGE();
             message.platform = "Rumble";
-            message.avatar = node.querySelector(".chat-history--user-avatar").src ?? message.avatar;
+
+            const avatarEl = node.querySelector("img.chat-history--user-avatar");
+            const picEl = node.querySelector(".chat--profile-pic");
+            if (avatarEl !== null && avatarEl.src !== "") {
+                console.log("Avatar", avatarEl.src);
+                message.avatar = avatarEl.src;
+            }
+            else if (picEl !== null && picEl.style.backgroundImage !== "") {
+                message.avatar = picEl.style.backgroundImage.replace('url("', "").replace('")', "");
+                console.log("Profile Pic", picEl.style.backgroundImage);
+            }
+
 
             if (node.classList.contains("chat-history--rant")) {
                 message.username = node.querySelector(".chat-history--rant-username").innerText;
@@ -177,6 +188,7 @@
                 message.is_premium = true;
                 message.amount = parseFloat(node.querySelector(".chat-history--rant-price").innerText.replace("$", ""));
                 message.currency = "USD"; // Rumble rants are always USD.
+                console.log("Superchat", message);
             }
             else {
                 message.username = node.querySelector(".chat-history--username").innerText;
@@ -197,6 +209,7 @@
                 // Rumble staff badge unknown.
             });
 
+            console.log(message);
             messages.push(message);
         });
 
@@ -235,3 +248,16 @@
 //   </div>
 // </div>
 // </li>
+
+
+// <li class="chat-history--row chat-history--rant" data-message-user-id="88707682" data-message-id="1182290124941408978"><div class="chat-history--rant" data-level="2">
+// <div class="chat-history--rant-head">
+// <div class="chat--profile-pic" style="margin-right: 1rem; background-image: url(&quot;https://sp.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg&quot;);" data-large=""></div>
+// <div style="display: flex; flex-wrap: wrap; align-items: flex-end">
+// <a class="chat-history--rant-username" target="_blank" href="/user/madattheinternet">madattheinternet</a>
+// <div class="chat-history--badges-wrapper"><img class="chat-history--user-badge" src="/i/badges/admin_48.png" alt="Admin" title="Admin"><a href="/account/publisher-packages"><img class="chat-history--user-badge" src="/i/badges/premium_48.png" alt="Rumble Premium User" title="Rumble Premium User"></a><img class="chat-history--user-badge" src="/i/badges/whale_gray_48.png" alt="Supporter" title="Supporter"></div>
+// <div class="chat-history--rant-price" style="width: 100%;">$2</div>
+// </div>
+// </div>
+// <div class="chat-history--rant-text">Testing superchats.</div>
+// </div></li>

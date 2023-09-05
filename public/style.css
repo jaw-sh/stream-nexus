@@ -26,8 +26,6 @@ main {
 .msg {
     display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
-    position: relative;
     overflow: hidden;
     z-index: 1;
 
@@ -48,6 +46,7 @@ main {
     color: var(--message-text-color, #ccc);
 }
     .msg.msg--t {
+        flex-wrap: wrap;
         padding: 0;
     }
     .msg--b-owner {
@@ -228,18 +227,27 @@ main {
         padding: 1rem;
         padding-top: 0.5rem;
     }
-    .msg-text img {
-        max-height: 1em;
-        vertical-align: top;
-    }
-    .msg-text a {
-        color: var(--msg-url, #ccc);
-        font-weight: normal;
-        text-decoration: none;
-    }
+
+/**
+ * Additional Message Definitions
+ * To deal with junk that appears inside chat messages.
+ */
+.msg-text img {
+    max-height: 1em;
+    vertical-align: top;
+}
+.msg-text a {
+    color: var(--msg-url, #ccc);
+    font-weight: normal;
+    text-decoration: none;
+}
+.msg-text p {
+    margin: 0;
+}
 
 #flyout {
     position: absolute;
+    z-index: 100;
     width: 100%;
     font-family: "Open Sans";
 }

@@ -183,8 +183,18 @@ function handle_command(message) {
 }
 
 function handle_premium(node, message) {
-    node.classList.add("msg--sticky");
-    recalculate_premium_positions();
+    if (message.currency == 'USD') {
+        node.classList.add("msg--sticky");
+        recalculate_premium_positions();
+
+        // 6 seconds for every dollar, 10 minutes for $100, caps 10 minutes.
+        let time = Math.min(600, message.amount * 6);
+        console.log(message.amount, time);
+        setTimeout(() => {
+            node.classList.remove("msg--sticky");
+            recalculate_premium_positions();
+        }, time * 1000);
+    }
 }
 
 function recalculate_premium_positions() {

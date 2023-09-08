@@ -141,7 +141,7 @@ class poll {
 
         let i = parseInt(vote_index) - 1;
 
-        if (i < 0 || i > this.options.length)
+        if (i < 0 || i >= this.options.length)
             return false;
 
         this.votes[i]++;

@@ -9,16 +9,24 @@ pub async fn fetch_exchange_rates() -> Result<ExchangeRates, anyhow::Error> {
 
     // Check if the request was successful
     if response.status().is_success() {
-        // Parse the JSON response into a struct
-        let exchange_rates: ExchangeRates = match response.text().await {
-            Ok(text) => serde_json::from_str(&text)?,
-            Err(_) => return Err(anyhow::anyhow!("Could not parse JSON response")),
-        };
-        Ok(exchange_rates)
-    } else {
-        log::error!("Failed to fetch Exchange Rates! System will rely on old data!");
-        Ok(serde_json::from_str(RATE_API_FALLBACK)?)
+        let text = response.text().await?;
+        // Response JSON has an entry for success.
+        // If the API key is missing/invalid the connection appears successful,
+        // but the request itself isn't. So fallback to old data below.
+        if text.contains("\"success\": true,") {
+            // Parse the JSON response into a struct
+            let exchange_rates: ExchangeRates = match serde_json::from_str(&text) {
+                Ok(data) => data,
+                Err(_) => return Err(anyhow::anyhow!("Could not parse JSON response.")),
+            };
+
+            return Ok(exchange_rates);
+        }
     }
+
+    // Fallback
+    log::error!("Failed to fetch Exchange Rates! System will rely on old data!");
+    Ok(serde_json::from_str(RATE_API_FALLBACK)?)
 }
 
 #[derive(Debug, Deserialize)]

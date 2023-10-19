@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -14,13 +15,8 @@ pub async fn fetch_exchange_rates() -> Result<ExchangeRates, anyhow::Error> {
         // If the API key is missing/invalid the connection appears successful,
         // but the request itself isn't. So fallback to old data below.
         if text.contains("\"success\": true,") {
-            // Parse the JSON response into a struct
-            let exchange_rates: ExchangeRates = match serde_json::from_str(&text) {
-                Ok(data) => data,
-                Err(_) => return Err(anyhow::anyhow!("Could not parse JSON response.")),
-            };
-
-            return Ok(exchange_rates);
+            // Parses the JSON response into an ExchangeRates.
+            return serde_json::from_str(&text).context("Could not parse JSON response.");
         }
     }
 

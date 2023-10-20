@@ -7,7 +7,7 @@ const RATE_API_ENDPOINT: &str = "http://api.exchangerate.host/live";
 
 pub async fn fetch_exchange_rates(key: &str) -> Result<ExchangeRates, anyhow::Error> {
     // Add GET params to url
-    let req_str = format!("{RATE_API_ENDPOINT}?access_key={key}&base=USD");
+    let req_str = format!("{RATE_API_ENDPOINT}?access_key={key}&source=USD");
     // Send an HTTP GET request to the URL
     let response = reqwest::get(req_str).await?;
 

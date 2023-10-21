@@ -80,18 +80,12 @@ class poll {
         poll_ui.classList.remove("fade-out");
         poll_ui.classList.add("fade-in");
         superchat_ui.classList.add("slide-down");
-
-        this.end_timeout = setTimeout(() => {
-            this.end_poll();
-            active_poll = null;
-        }, 1000 * 120); // default poll duration of 2 minutes
     }
 
     end_poll() {
         poll_ui.classList.remove("fade-in");
         poll_ui.classList.add("fade-out");
         setTimeout(() => { poll_ui.style.display = "none"; }, 500);
-        clearTimeout(this.end_timeout);
     }
 
     update() {

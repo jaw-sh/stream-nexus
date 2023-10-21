@@ -83,9 +83,35 @@ class poll {
     }
 
     end_poll() {
-        poll_ui.classList.remove("fade-in");
-        poll_ui.classList.add("fade-out");
-        setTimeout(() => { poll_ui.style.display = "none"; }, 500);
+        let participants = this.voters.length;
+        let html = `<strong>${this.question}</strong><br><small>${participants} participants</small><ul>`;
+        let winning_option = 0;
+
+        for (let i = 0; i < this.options.length; i++) {
+            if (this.votes[i] > this.votes[winning_option])
+                winning_option = i;
+        }
+
+        for (let i = 0; i < this.options.length; i++) {
+            let percentage = 0;
+            if (this.total_votes > 0) {
+                percentage = (this.votes[i] / this.total_votes) * 100;
+                percentage = percentage.toFixed(2);
+            }
+            if (i == winning_option)
+                html += `<li><strong>!vote ${i + 1}: ${this.options[i]} - ${this.votes[i]} (${percentage}%)</strong></li>`;
+            else
+                html += `<li>!vote ${i + 1}: ${this.options[i]} - ${this.votes[i]} (${percentage}%)</li>`;
+        }
+
+        poll_ui.innerHTML = html;
+
+        setTimeout(() => {
+            poll_ui.classList.remove("fade-in");
+            poll_ui.classList.add("fade-out");
+            setTimeout(() => { poll_ui.style.display = "none"; }, 500);
+        }, 5000);
+        active_poll = null;
     }
 
     update() {

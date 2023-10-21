@@ -185,7 +185,6 @@ function handle_command(message) {
     // ignore non-commands, except if a vote is running so we can allow messages like "1" or "!2" to be counted as votes
     if (!message.message.startsWith("!") && active_poll === null)
         return false;
-    let command_handled = false;
     let msg = message.message;
     const is_admin = message.is_owner;
 
@@ -193,31 +192,29 @@ function handle_command(message) {
         msg = msg.replace("!poll", "").trim();
         let parts = msg.split(";");
         parts = parts.filter(el => el.length != 0);
-        if (parts.length < 3)
-            return;
-        active_poll = new poll(parts[0], false, parts.slice(1));
-        command_handled = true;
+        if (parts.length >= 3)
+            active_poll = new poll(parts[0], false, parts.slice(1));
+        return true;
     }
     else if (msg.startsWith("!multipoll") && is_admin) {
         msg = msg.replace("!multipoll", "").trim();
         let parts = msg.split(";");
         parts = parts.filter(el => el.length != 0);
-        if (parts.length < 3)
-            return;
-        active_poll = new poll(parts[0], true, parts.slice(1));
-        command_handled = true;
+        if (parts.length >= 3)
+            active_poll = new poll(parts[0], true, parts.slice(1));
+        return true;
     }
     else if (msg.startsWith("!endpoll") && is_admin) {
         if (active_poll !== null)
             active_poll.end_poll();
-        command_handled = true;
+        return true;
     }
     else if (active_poll !== null && active_poll.is_valid_vote(message.message)) {
         active_poll.handle_vote_message(message);
-        command_handled = true;
+        return true;
     }
 
-    return command_handled;
+    return false;
 }
 
 function handle_premium(node, message) {

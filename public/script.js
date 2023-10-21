@@ -23,17 +23,15 @@
         console.log(message);
         // check if element already exists
         if (document.getElementById(message.id) === null) {
-            let el = document.createElement("div");
-            main.appendChild(el);
-            el.outerHTML = message.html;
-            el = document.getElementById(message.id);
+            if (!handle_command(message)) {
+                let el = document.createElement("div");
+                main.appendChild(el);
+                el.outerHTML = message.html;
+                el = document.getElementById(message.id);
 
-            if (message.message.startsWith("!")) {
-                handle_command(message);
-            }
-
-            if (message.is_premium || message.amount > 0) {
-                handle_premium(el, message);
+                if (message.is_premium || message.amount > 0) {
+                    handle_premium(el, message);
+                }
             }
 
             while (main.children.length > 200) {
@@ -110,7 +108,7 @@ class poll {
             poll_ui.classList.remove("fade-in");
             poll_ui.classList.add("fade-out");
             setTimeout(() => { poll_ui.style.display = "none"; }, 500);
-        }, 5000);
+        }, 10000);
         active_poll = null;
     }
 
@@ -171,6 +169,9 @@ class poll {
 }
 
 function handle_command(message) {
+    if (!message.message.startsWith("!"))
+        return false;
+    let command_handled = false;
     let msg = message.message;
     const is_admin = message.is_owner;
 
@@ -181,6 +182,7 @@ function handle_command(message) {
         if (parts.length < 3)
             return;
         active_poll = new poll(parts[0], false, parts.slice(1));
+        command_handled = true;
     }
     else if (msg.startsWith("!multipoll") && is_admin) {
         msg = msg.replace("!multipoll", "").trim();
@@ -189,17 +191,21 @@ function handle_command(message) {
         if (parts.length < 3)
             return;
         active_poll = new poll(parts[0], true, parts.slice(1));
+        command_handled = true;
     }
     else if (msg.startsWith("!endpoll") && is_admin) {
         if (active_poll !== null)
             active_poll.end_poll();
+        command_handled = true;
     }
-
     else if (msg.startsWith("!vote")) {
         if (active_poll === null)
             return;
         active_poll.handle_vote_message(message);
+        command_handled = true;
     }
+
+    return command_handled;
 }
 
 function handle_premium(node, message) {

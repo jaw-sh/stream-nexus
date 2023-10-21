@@ -134,7 +134,7 @@ class poll {
         if (active_poll.voters.includes(data.username))
             return;
 
-        let args = data.message.replace("!vote", "").trim();
+        let args = data.message.replace("!vote", "").replace("!", "").trim();
         let result = false;
         if (this.multi_vote) {
             let votes = args.split(" ");
@@ -166,10 +166,24 @@ class poll {
         this.total_votes++;
         return true;
     }
+
+    is_valid_vote(message) {
+        // Allow "!vote 1"
+        if (message.startsWith("!vote"))
+            return true;
+        // Allow "1"
+        if (message.length == 1 && !isNaN(message[0]))
+            return true;
+        // Allow "!2"
+        if (message.startsWith("!") && !isNaN(message[1]))
+            return true;
+        return false;
+    }
 }
 
 function handle_command(message) {
-    if (!message.message.startsWith("!"))
+    // ignore non-commands, except if a vote is running so we can allow messages like "1" or "!2" to be counted as votes
+    if (!message.message.startsWith("!") && active_poll === null)
         return false;
     let command_handled = false;
     let msg = message.message;
@@ -198,9 +212,7 @@ function handle_command(message) {
             active_poll.end_poll();
         command_handled = true;
     }
-    else if (msg.startsWith("!vote")) {
-        if (active_poll === null)
-            return;
+    else if (active_poll !== null && active_poll.is_valid_vote(message.message)) {
         active_poll.handle_vote_message(message);
         command_handled = true;
     }

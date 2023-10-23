@@ -12,10 +12,18 @@ use crate::web::ChatServer;
 use actix::Actor;
 use actix_web::{App, HttpServer};
 use anyhow::Result;
+use std::fs;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-    dotenvy::dotenv().expect("Could not load .env file");
+    match dotenvy::dotenv() {
+        Ok(_) => {}
+        Err(_) => {
+            fs::copy(".env.default", ".env")?;
+            // Try again now that it exists.
+            dotenvy::dotenv().expect("Failed to create .env file.");
+        }
+    }
     env_logger::init();
 
     let chat = ChatServer::new(

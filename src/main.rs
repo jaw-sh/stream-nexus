@@ -3,6 +3,7 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 
+mod sneed_env; // naming it "env" can be confusing.
 mod exchange;
 mod message;
 mod web;
@@ -12,18 +13,10 @@ use crate::web::ChatServer;
 use actix::Actor;
 use actix_web::{App, HttpServer};
 use anyhow::Result;
-use std::fs;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-    match dotenvy::dotenv() {
-        Ok(_) => {}
-        Err(_) => {
-            fs::copy(".env.default", ".env")?;
-            // Try again now that it exists.
-            dotenvy::dotenv().expect("Failed to create .env file.");
-        }
-    }
+    sneed_env::get_env();
     env_logger::init();
 
     let chat = ChatServer::new(

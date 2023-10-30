@@ -1,11 +1,15 @@
-use anyhow::Context;
+use anyhow::{Context, Result};
+use regex::Regex;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::fs;
+use std::io::BufReader;
 
+const FALLBACK_PATH: &str = "exchange_data.json";
 // Note: HTTPS requests are premium only.
 const RATE_API_ENDPOINT: &str = "http://api.exchangerate.host/live";
 
-pub async fn fetch_exchange_rates(key: &str) -> Result<ExchangeRates, anyhow::Error> {
+pub async fn fetch_exchange_rates(key: &str) -> Result<ExchangeRates> {
     // Add GET params to url
     let req_str = format!("{RATE_API_ENDPOINT}?access_key={key}&source=USD");
     // Send an HTTP GET request to the URL
@@ -17,7 +21,11 @@ pub async fn fetch_exchange_rates(key: &str) -> Result<ExchangeRates, anyhow::Er
         // Response JSON has an entry for success.
         // If the API key is missing/invalid the connection appears successful,
         // but the request itself isn't. So fallback to old data below.
-        if text.contains("\"success\":true,") {
+        let re = Regex::new("\"success\": ?true,")?;
+        if re.is_match(&text) {
+            // Write latest rates to file for a reasonably up-to-date fallback.
+            fs::write(FALLBACK_PATH, &text)
+                .context("Could not write new exchange rates to file.")?;
             // Parses the JSON response into an ExchangeRates.
             return serde_json::from_str(&text).context("Could not parse JSON response.");
         }
@@ -25,7 +33,17 @@ pub async fn fetch_exchange_rates(key: &str) -> Result<ExchangeRates, anyhow::Er
 
     // Fallback
     log::error!("Failed to fetch Exchange Rates! System will rely on old data!");
-    Ok(serde_json::from_str(RATE_API_FALLBACK)?)
+    match fs::File::open(FALLBACK_PATH) {
+        Ok(f) => {
+            let reader = BufReader::new(f);
+            serde_json::from_reader(reader).context("Could not parse fallback data.")
+        }
+        Err(_) => {
+            log::warn!("{FALLBACK_PATH} not found. Using built-in data as a last resort.");
+            serde_json::from_str(RATE_API_FALLBACK)
+                .context("Could not parse built-in fallback data.")
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

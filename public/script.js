@@ -23,17 +23,15 @@
         console.log(message);
         // check if element already exists
         if (document.getElementById(message.id) === null) {
-            let el = document.createElement("div");
-            main.appendChild(el);
-            el.outerHTML = message.html;
-            el = document.getElementById(message.id);
+            if (!handle_command(message)) {
+                let el = document.createElement("div");
+                main.appendChild(el);
+                el.outerHTML = message.html;
+                el = document.getElementById(message.id);
 
-            if (message.message.startsWith("!")) {
-                handle_command(message);
-            }
-
-            if (message.is_premium || message.amount > 0) {
-                handle_premium(el, message);
+                if (message.is_premium || message.amount > 0) {
+                    handle_premium(el, message);
+                }
             }
 
             while (main.children.length > 200) {
@@ -80,18 +78,38 @@ class poll {
         poll_ui.classList.remove("fade-out");
         poll_ui.classList.add("fade-in");
         superchat_ui.classList.add("slide-down");
-
-        this.end_timeout = setTimeout(() => {
-            this.end_poll();
-            active_poll = null;
-        }, 1000 * 120); // default poll duration of 2 minutes
     }
 
     end_poll() {
-        poll_ui.classList.remove("fade-in");
-        poll_ui.classList.add("fade-out");
-        setTimeout(() => { poll_ui.style.display = "none"; }, 500);
-        clearTimeout(this.end_timeout);
+        let participants = this.voters.length;
+        let html = `<strong>${this.question}</strong><br><small>${participants} participants</small><ul>`;
+        let winning_option = 0;
+
+        for (let i = 0; i < this.options.length; i++) {
+            if (this.votes[i] > this.votes[winning_option])
+                winning_option = i;
+        }
+
+        for (let i = 0; i < this.options.length; i++) {
+            let percentage = 0;
+            if (this.total_votes > 0) {
+                percentage = (this.votes[i] / this.total_votes) * 100;
+                percentage = percentage.toFixed(2);
+            }
+            if (i == winning_option)
+                html += `<li><strong>!vote ${i + 1}: ${this.options[i]} - ${this.votes[i]} (${percentage}%)</strong></li>`;
+            else
+                html += `<li>!vote ${i + 1}: ${this.options[i]} - ${this.votes[i]} (${percentage}%)</li>`;
+        }
+
+        poll_ui.innerHTML = html;
+
+        setTimeout(() => {
+            poll_ui.classList.remove("fade-in");
+            poll_ui.classList.add("fade-out");
+            setTimeout(() => { poll_ui.style.display = "none"; }, 500);
+        }, 10000);
+        active_poll = null;
     }
 
     update() {
@@ -116,7 +134,7 @@ class poll {
         if (active_poll.voters.includes(data.username))
             return;
 
-        let args = data.message.replace("!vote", "").trim();
+        let args = data.message.replace("!vote", "").replace("!", "").trim();
         let result = false;
         if (this.multi_vote) {
             let votes = args.split(" ");
@@ -148,9 +166,25 @@ class poll {
         this.total_votes++;
         return true;
     }
+
+    is_valid_vote(message) {
+        // Allow "!vote 1"
+        if (message.startsWith("!vote"))
+            return true;
+        // Allow "1"
+        if (message.length == 1 && !isNaN(message[0]))
+            return true;
+        // Allow "!2"
+        if (message.startsWith("!") && !isNaN(message[1]))
+            return true;
+        return false;
+    }
 }
 
 function handle_command(message) {
+    // ignore non-commands, except if a vote is running so we can allow messages like "1" or "!2" to be counted as votes
+    if (!message.message.startsWith("!") && active_poll === null)
+        return false;
     let msg = message.message;
     const is_admin = message.is_owner;
 
@@ -158,28 +192,29 @@ function handle_command(message) {
         msg = msg.replace("!poll", "").trim();
         let parts = msg.split(";");
         parts = parts.filter(el => el.length != 0);
-        if (parts.length < 3)
-            return;
-        active_poll = new poll(parts[0], false, parts.slice(1));
+        if (parts.length >= 3)
+            active_poll = new poll(parts[0], false, parts.slice(1));
+        return true;
     }
     else if (msg.startsWith("!multipoll") && is_admin) {
         msg = msg.replace("!multipoll", "").trim();
         let parts = msg.split(";");
         parts = parts.filter(el => el.length != 0);
-        if (parts.length < 3)
-            return;
-        active_poll = new poll(parts[0], true, parts.slice(1));
+        if (parts.length >= 3)
+            active_poll = new poll(parts[0], true, parts.slice(1));
+        return true;
     }
     else if (msg.startsWith("!endpoll") && is_admin) {
         if (active_poll !== null)
             active_poll.end_poll();
+        return true;
+    }
+    else if (active_poll !== null && active_poll.is_valid_vote(message.message)) {
+        active_poll.handle_vote_message(message);
+        return true;
     }
 
-    else if (msg.startsWith("!vote")) {
-        if (active_poll === null)
-            return;
-        active_poll.handle_vote_message(message);
-    }
+    return false;
 }
 
 function handle_premium(node, message) {

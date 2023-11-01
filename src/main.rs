@@ -1,8 +1,3 @@
-extern crate dotenvy;
-extern crate reqwest;
-extern crate serde;
-extern crate serde_json;
-
 mod sneed_env; // naming it "env" can be confusing.
 mod exchange;
 mod message;

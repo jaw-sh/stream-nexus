@@ -19,7 +19,10 @@
                 <span class="button delete" title="Delete donations" onclick="delete_donations()">🗑️</span>
             </div>
             <div id="donation-history">
-                {{ super_chats|safe }}
+                {% for sc in super_chats %}
+                    {% let h = sc.to_html() %}
+                    {{ h|safe }}
+                {% endfor %}
             </div>
         </div>
     </div>

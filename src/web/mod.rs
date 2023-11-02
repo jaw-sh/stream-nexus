@@ -23,7 +23,7 @@ struct IndexTemplate {}
 #[derive(Template)]
 #[template(path = "dashboard.html")]
 struct DashboardTemplate {
-    super_chats: String,
+    super_chats: Vec<crate::message::Message>,
 }
 
 #[actix_web::get("/")]
@@ -38,13 +38,13 @@ pub async fn dashboard(req: HttpRequest) -> impl Responder {
         .expect("ChatServer missing in app data!")
         .clone();
 
-    let chat_data = chat_server.send(message::GetDashboardData).await.unwrap();
-
-    let mut super_chats = String::new();
-    for msg in chat_data.super_chats.iter() {
-        super_chats.push_str(&msg.to_html());
+    DashboardTemplate {
+        super_chats: chat_server
+            .send(message::GetDashboardData)
+            .await
+            .unwrap()
+            .super_chats,
     }
-    DashboardTemplate { super_chats }
 }
 
 #[actix_web::get("/dashboard.js")]

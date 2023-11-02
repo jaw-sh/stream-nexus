@@ -1,7 +1,7 @@
-use actix::{Actor, Context, Handler, Recipient};
+use actix::{Actor, Context, Handler, MessageResult, Recipient};
 use std::collections::HashMap;
 
-use super::message;
+use super::message::{self, DashboardData};
 use crate::exchange::ExchangeRates;
 use crate::message::Message as ChatMessage;
 
@@ -95,5 +95,19 @@ impl Handler<message::Content> for ChatServer {
         if chat_msg.amount > 0.0 {
             self.premium_chats.push(chat_msg);
         }
+    }
+}
+
+impl Handler<message::GetDashboardData> for ChatServer {
+    type Result = MessageResult<message::GetDashboardData>;
+
+    fn handle(
+        &mut self,
+        _msg: message::GetDashboardData,
+        _ctx: &mut Context<Self>,
+    ) -> Self::Result {
+        MessageResult(DashboardData {
+            super_chats: self.premium_chats.clone(),
+        })
     }
 }

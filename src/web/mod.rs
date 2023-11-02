@@ -4,6 +4,7 @@ mod server;
 
 pub use client::ChatClient;
 pub use message::Content as ChatMessage;
+pub use message::GetDashboardData;
 pub use server::ChatServer;
 
 use actix::Addr;
@@ -19,9 +20,38 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
 #[template(path = "index.html")]
 struct IndexTemplate {}
 
+#[derive(Template)]
+#[template(path = "dashboard.html")]
+struct DashboardTemplate {
+    super_chats: String,
+}
+
 #[actix_web::get("/")]
 pub async fn index() -> impl Responder {
     IndexTemplate {}
+}
+
+#[actix_web::get("/dashboard")]
+pub async fn dashboard(req: HttpRequest) -> impl Responder {
+    let chat_server = req
+        .app_data::<Addr<ChatServer>>()
+        .expect("ChatServer missing in app data!")
+        .clone();
+
+    let chat_data = chat_server.send(message::GetDashboardData).await.unwrap();
+
+    let mut super_chats = String::new();
+    for msg in chat_data.super_chats.iter() {
+        super_chats.push_str(&msg.to_html());
+    }
+    DashboardTemplate { super_chats }
+}
+
+#[actix_web::get("/dashboard.js")]
+pub async fn dashboard_javascript() -> impl Responder {
+    HttpResponse::Ok()
+        .append_header((header::CONTENT_TYPE, "text/javascript"))
+        .body(std::fs::read_to_string("public/dashboard.js").unwrap())
 }
 
 #[actix_web::get("/script.js")]
@@ -36,6 +66,13 @@ pub async fn stylesheet() -> impl Responder {
     HttpResponse::Ok()
         .append_header((header::CONTENT_TYPE, "text/css"))
         .body(std::fs::read_to_string("public/style.css").unwrap())
+}
+
+#[actix_web::get("/dashboard.css")]
+pub async fn dashboard_stylesheet() -> impl Responder {
+    HttpResponse::Ok()
+        .append_header((header::CONTENT_TYPE, "text/css"))
+        .body(std::fs::read_to_string("public/dashboard.css").unwrap())
 }
 
 #[actix_web::get("/user-colors.css")]

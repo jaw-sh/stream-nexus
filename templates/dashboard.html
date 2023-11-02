@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>S.N.E.E.D. Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="stylesheet" type="text/css" href="/dashboard.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap" />
+</head>
+
+<body class="theme-dark">
+
+    <div class="grid-container">
+        <div id="donation-column">
+            <div class="donation-header">
+                Superchats
+                <span class="button delete" title="Delete donations" onclick="delete_donations()">🗑️</span>
+            </div>
+            <div id="donation-history">
+                {{ super_chats|safe }}
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="/dashboard.js"></script>
+</body>
+
+</html>

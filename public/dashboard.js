@@ -41,10 +41,3 @@ function handle_message(message) {
         donation_history.innerHTML = donation_history.innerHTML + message.html;
     }
 }
-
-function delete_donations() {
-    let question = confirm(`Are you sure you want to delete the donation history?`);
-    if (!question)
-        return;
-    donation_history.innerHTML = ""; // idk if even need this since reloading the page will undo this
-}

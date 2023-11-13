@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>S.N.E.E.D. Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="stylesheet" type="text/css" href="/dashboard.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap" />
+</head>
+
+<body class="theme-dark">
+
+    <div class="grid-container">
+        <div id="donation-column" class="dashboard-column">
+            <div class="donation-header">
+                Superchats
+            </div>
+            <div id="donation-history">
+                {% for sc in super_chats %}
+                    {% let h = sc.to_html() %}
+                    {{ h|safe }}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="/dashboard.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,72 @@
+.theme-dark {
+    --background: #383838;
+    --background-accent: #4f4f4f;
+    --dashboard-header: #747474;
+    --foreground: #ffffff;
+    --foreground-inactive: #d1d1d1;
+}
+
+html,
+body {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.msg {
+    border-radius: 2em;
+    max-height: none;
+}
+
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 10px;
+    padding: 10px;
+    height: 100%;
+    max-width: max(1000px, 70vw);
+}
+
+.dashboard-column {
+    background-color: var(--background-accent);
+    border-radius: 5px;
+    display: grid;
+    overflow-y: auto;
+    grid-template-rows: min-content 1fr;
+    scrollbar-color: var(--foreground-inactive) var(--background);
+}
+
+/* for chrome */
+::-webkit-scrollbar {
+    height: 12px;
+    width: 5px;
+    border-radius: 5px;
+    background: var(--background-accent);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--foreground-inactive);
+    border-radius: 5px;
+}
+
+#donation-history {
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.donation-header {
+    border-radius: 5px 5px 0px 0px;
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    padding: 5px 0px 5px;
+    background: var(--dashboard-header);
+    filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.5));
+}

@@ -10,7 +10,7 @@ struct MessageTemplate<'a> {
     message: &'a Message,
 }
 
-#[derive(Serialize, Deserialize, Debug, ActixMessage)]
+#[derive(Serialize, Deserialize, Debug, ActixMessage, Clone)]
 #[rtype(result = "()")]
 pub struct Message {
     pub id: Uuid,

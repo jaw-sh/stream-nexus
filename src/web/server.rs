@@ -1,8 +1,9 @@
-use actix::{Actor, Context, Handler, Recipient};
+use actix::{Actor, Context, Handler, MessageResult, Recipient};
 use std::collections::HashMap;
 
-use super::message;
+use super::message::{self, DashboardData};
 use crate::exchange::ExchangeRates;
+use crate::message::Message as ChatMessage;
 
 pub struct Connection {
     pub id: usize,
@@ -13,6 +14,7 @@ pub struct Connection {
 pub struct ChatServer {
     pub clients: HashMap<usize, Connection>,
     pub exchange_rates: ExchangeRates,
+    pub premium_chats: Vec<ChatMessage>,
 }
 
 impl ChatServer {
@@ -22,6 +24,7 @@ impl ChatServer {
         Self {
             clients: HashMap::new(),
             exchange_rates,
+            premium_chats: Vec::new(),
         }
     }
 }
@@ -86,5 +89,25 @@ impl Handler<message::Content> for ChatServer {
         for (_, conn) in &self.clients {
             conn.recipient.do_send(message::Reply(chat_msg.to_json()));
         }
+
+        // Backup premium chats to a vector.
+        // Performed at the end to avoid having to copy.
+        if chat_msg.amount > 0.0 {
+            self.premium_chats.push(chat_msg);
+        }
+    }
+}
+
+impl Handler<message::GetDashboardData> for ChatServer {
+    type Result = MessageResult<message::GetDashboardData>;
+
+    fn handle(
+        &mut self,
+        _msg: message::GetDashboardData,
+        _ctx: &mut Context<Self>,
+    ) -> Self::Result {
+        MessageResult(DashboardData {
+            super_chats: self.premium_chats.clone(),
+        })
     }
 }

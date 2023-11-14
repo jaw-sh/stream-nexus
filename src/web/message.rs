@@ -35,3 +35,14 @@ pub struct Content {
 impl Message for Content {
     type Result = ();
 }
+
+/// For rendering the dashboard
+pub struct GetDashboardData;
+
+pub struct DashboardData {
+    pub super_chats: Vec<ChatMessage>,
+}
+
+impl Message for GetDashboardData {
+    type Result = DashboardData;
+}

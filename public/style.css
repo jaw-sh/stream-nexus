@@ -48,6 +48,7 @@ main {
     .msg.msg--t {
         flex-wrap: wrap;
         padding: 0;
+        max-height: none;
     }
     .msg--b-owner {
         border-color: gold;
@@ -209,6 +210,12 @@ main {
     margin: -2px 0 0 -2px;
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
+}
+
+.msg-container {
+    max-width: 100%;
+    height: auto;
+    overflow: hidden;
 }
 
 .msg-text {

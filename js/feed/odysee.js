@@ -173,7 +173,7 @@
             // In particular, avatars appear to be GIF images that are frozen after a short time.
             const message = CREATE_MESSAGE();
             message.platform = "Odysee";
-            message.sent_at = Date.parse(node.querySelector(".date_time").getAttribute("title"));
+            //message.sent_at = Date.parse(node.querySelector(".date_time").getAttribute("title")) * 10;
 
             // in strange conditions this can be null, I do not know why.
             const avatar = node.querySelector(".channel-thumbnail__custom, .freezeframe-img")?.src;

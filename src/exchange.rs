@@ -1,9 +1,12 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
-const RATE_API_ENDPOINT: &str = "https://api.exchangerate.host/latest?base=USD";
+const RATE_API_ENDPOINT: &str =
+    "https://api.exchangerate.host/latest?access_key=a0e57ecae9d3f9a91c541829558f262f
+&base=USD";
 
 pub async fn fetch_exchange_rates() -> Result<ExchangeRates, anyhow::Error> {
+    return Ok(serde_json::from_str(RATE_API_FALLBACK)?);
     // Send an HTTP GET request to the URL
     let response = reqwest::get(RATE_API_ENDPOINT).await?;
 

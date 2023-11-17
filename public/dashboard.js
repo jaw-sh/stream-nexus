@@ -37,7 +37,7 @@ var socket = null;
 })();
 
 function handle_message(message) {
-    if (message.is_premium || message.amount > 0) {
+    if (message.amount > 0) {
         donation_history.innerHTML = donation_history.innerHTML + message.html;
     }
 }

@@ -29,9 +29,8 @@
                 el.outerHTML = message.html;
                 el = document.getElementById(message.id);
 
-                if (message.is_premium || message.amount > 0) {
+                if (message.amount > 0)
                     handle_premium(el, message);
-                }
             }
 
             while (main.children.length > 200) {

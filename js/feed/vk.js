@@ -74,7 +74,6 @@
             sent_at: Date.now(), // System timestamp for display ordering.
             received_at: Date.now(), // Local timestamp for management.
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
             amount: 0,
             currency: "ZWL",
             is_verified: false,
@@ -173,7 +172,6 @@
             // VK does not have superchats as far as I'm aware.
             message.username = node.querySelector(".mv_chat_message_author_name_text").innerText;
             message.message = node.querySelector(".mv_chat_message_text").innerHTML;
-            message.is_premium = false;
 
             // I don't think VK has badges either??
 

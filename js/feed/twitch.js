@@ -73,7 +73,6 @@
             sent_at: Date.now(), // System timestamp for display ordering.
             received_at: Date.now(), // Local timestamp for management.
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
             amount: 0,
             currency: "ZWL",
             is_verified: false,
@@ -212,7 +211,6 @@
             message.message = msg_body.innerHTML;
 
             if (node.classList.contains("channel-points-reward-line__icon")) {
-                message.is_premium = true;
 
                 message.currency = node.querySelector(".channel-points-icon__image").getAttribute("alt");
                 message.amount = node.querySelector(".user-notice-line div:first-child").textContent;

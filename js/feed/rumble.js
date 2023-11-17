@@ -75,7 +75,6 @@
             sent_at: Date.now(), // System timestamp for display ordering.
             received_at: Date.now(), // Local timestamp for management.
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
             amount: 0,
             currency: "ZWL",
             is_verified: false,
@@ -185,7 +184,6 @@
             if (node.classList.contains("chat-history--rant")) {
                 message.username = node.querySelector(".chat-history--rant-username").innerText;
                 message.message = node.querySelector(".chat-history--rant-text").innerHTML;
-                message.is_premium = true;
                 message.amount = parseFloat(node.querySelector(".chat-history--rant-price").innerText.replace("$", ""));
                 message.currency = "USD"; // Rumble rants are always USD.
                 console.log("Superchat", message);

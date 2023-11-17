@@ -75,7 +75,6 @@
             sent_at: Date.now(), // System timestamp for display ordering.
             received_at: Date.now(), // Local timestamp for management.
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
             amount: 0,
             currency: "ZWL",
             is_verified: false,

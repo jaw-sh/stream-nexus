@@ -47,18 +47,18 @@
 
     // Connection opened
     CHAT_SOCKET.addEventListener("open", (event) => {
-        console.log("[SNEED] Socket connection established.");
+        console.log("[SNEED::YouTube] Socket connection established.");
         SEND_MESSAGES(MESSAGE_QUEUE);
         MESSAGE_QUEUE = [];
     });
 
     CHAT_SOCKET.addEventListener("close", (event) => {
-        console.log("[SNEED] Socket has closed. Attempting reconnect.", event);
+        console.log("[SNEED::YouTube] Socket has closed. Attempting reconnect.", event);
         setTimeout(function () { reconnect(); }, 3000);
     });
 
     CHAT_SOCKET.addEventListener("error", (event) => {
-        console.log("[SNEED] Socket has errored. Closing.", event.reason);
+        console.log("[SNEED::YouTube] Socket has errored. Closing.", event.reason);
         alert("The SNEED chat socket could not connect. Ensure the web server is running and that Brave shields are off.");
         socket.close();
     });
@@ -66,7 +66,7 @@
     //
     // Chat Messages
     //
-    let MESSAGE_QUEUE = [];
+    var MESSAGE_QUEUE = [];
 
     const CREATE_MESSAGE = () => {
         return {
@@ -77,7 +77,6 @@
             sent_at: Date.now(), // System timestamp for display ordering.
             received_at: Date.now(), // Local timestamp for management.
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
             amount: 0,
             currency: "ZWL",
             is_verified: false,
@@ -92,12 +91,12 @@
         const targetNode = GET_CHAT_CONTAINER();
 
         if (targetNode === null) {
-            console.log("[SNEED] No chat container found.")
+            console.log("[SNEED::YouTube] No chat container found.")
             return false;
         }
 
         if (document.querySelector(".sneed-chat-container") !== null) {
-            console.log("[SNEED] Chat container already bound, aborting.");
+            console.log("[SNEED::YouTube] Chat container already bound, aborting.");
             return false;
         }
 
@@ -138,15 +137,15 @@
         }
     };
 
-    setInterval(function () {
-        if (document.querySelector(".sneed-chat-container") === null) {
-            // YT-Specific: Enforce live chat.
-            if (YOUTUBE_LIVE_CHAT() === true) {
-                const chatContainer = GET_CHAT_CONTAINER();
-                if (chatContainer !== null && !chatContainer.classList.contains("sneed-chat-container")) {
-                    console.log("[SNEED] Binding chat container.");
-                    BIND_MUTATION_OBSERVER();
-                }
+    setInterval(() => {
+        if (document.querySelector(".sneed-chat-container") !== null)
+            return;
+        // YT-Specific: Enforce live chat.
+        if (YOUTUBE_LIVE_CHAT()) {
+            const chatContainer = GET_CHAT_CONTAINER();
+            if (chatContainer !== null && !chatContainer.classList.contains("sneed-chat-container")) {
+                console.log("[SNEED::YouTube] Binding chat container.");
+                BIND_MUTATION_OBSERVER();
             }
         }
     }, 1000);
@@ -163,7 +162,7 @@
         const chatContainer = GET_CHAT_CONTAINER();
 
         if (chatContainer === null) {
-            console.log("[SNEED] Awaiting live chat container...");
+            console.log("[SNEED::YouTube] Awaiting live chat container...");
             return false;
         }
 
@@ -172,18 +171,16 @@
         const liveEl = chatApp.querySelectorAll("#item-with-badge.yt-dropdown-menu")[1];
 
         if (dropdownEl === null || liveEl === undefined) {
-            console.log("[SNEED] No live chat dropdown menu.");
+            console.log("[SNEED::YouTube] No live chat dropdown menu.");
             console.log(dropdownEl, liveEl);
             return false;
         }
 
-        if (dropdownEl.textContent.trim() == liveEl.textContent.trim()) {
-            // We're already live chat.
-            return true;
-        }
+        if (dropdownEl.textContent.trim() === liveEl.textContent.trim())
+            return true; // We're already live chat.
 
         liveEl.closest("a").click();
-        console.log("[SNEED] Live chat activated. Eat it, Neal!");
+        console.log("[SNEED::YouTube] Live chat activated. Eat it, Neal!");
         return true;
     }
 
@@ -194,7 +191,7 @@
     };
 
     const GET_EXISTING_MESSAGES = () => {
-        console.log("[SNEED] Checking for existing messages.");
+        console.log("[SNEED::YouTube] Checking for existing messages.");
         const nodes = GET_CHAT_CONTAINER().childNodes;
 
         if (nodes.length > 0) {
@@ -210,9 +207,8 @@
 
         nodes.forEach((node) => {
             const tag = node.tagName.toLowerCase();
-            if (tag != 'yt-live-chat-text-message-renderer' && tag != 'yt-live-chat-paid-message-renderer') {
+            if (!(tag === "yt-live-chat-text-message-renderer" || tag === "yt-live-chat-paid-message-renderer"))
                 return;
-            }
 
             let message = CREATE_MESSAGE();
             message.platform = "YouTube";
@@ -224,44 +220,44 @@
 
             if (tag === "yt-live-chat-paid-message-renderer") {
                 const dono = node.querySelector("#purchase-amount").innerText;
-                message.is_premium = true;
                 const amt = dono.replace(/[^0-9.-]+/g, "");
                 message.amount = Number(amt);
                 // get index of first number or whitespace in dono
                 //const currency = dono.substring(0, dono.indexOf(" ")).trim();
                 const currency = dono.split(/[0-9 ]/)[0].trim();
+
                 // ## TODO ## YT superchats are MANY currencies.
-                switch (currency) {
-                    case "$": message.currency = "USD"; break;
-                    case "CA$": message.currency = "CAD"; break;
-                    case "C$": message.currency = "NIO"; break; // I think this is Nicaraguan Cordoba and not Canadian Dollar.
-                    case "A$": message.currency = "AUD"; break;
-                    case "NZ$": message.currency = "NZD"; break;
-                    case "NT$": message.currency = "TWD"; break;
-                    case "R$": message.currency = "BRL"; break;
-                    case "MX$": message.currency = "MXN"; break;
-                    case "HK$": message.currency = "HKD"; break;
-                    case "£": message.currency = "GBP"; break;
-                    case "€": message.currency = "EUR"; break;
-                    case "₽": message.currency = "RUB"; break;
-                    case "₹": message.currency = "INR"; break;
-                    case "¥": message.currency = "JPY"; break;
-                    case "₩": message.currency = "KRW"; break;
-                    case "₱": message.currency = "PHP"; break;
-                    case "₫": message.currency = "VND"; break;
-                    default:
-                        // Many YT currencies are actually the currency code.
-                        if (currency.length === 3) {
-                            message.currency = currency;
-                        }
-                        else {
-                            console.log("[SNEED] Unknown currency: " + currency);
-                            message.currency = "ZWD";
-                        }
-                }
+                const currencyMap = {
+                    // "$": "USD",
+                    "US$": "USD", // Looks like it's US$ now.
+                    "CA$": "CAD",
+                    "C$": "NIO", // I think this is Nicaraguan Cordoba and not Canadian Dollar.
+                    "A$": "AUD",
+                    "NZ$": "NZD",
+                    "NT$": "TWD",
+                    "R$": "BRL",
+                    "MX$": "MXN",
+                    "HK$": "HKD",
+                    "£": "GBP",
+                    "€": "EUR",
+                    "₽": "RUB",
+                    "₹": "INR",
+                    "¥": "JPY",
+                    "₩": "KRW",
+                    "₱": "PHP",
+                    "₫": "VND",
+                };
+
+                if (currencyMap[currency] === undefined)
+                    message.currency = currency.length === 3 ? currency : (() => {
+                        console.error("[SNEED::YouTube] Unknown currency:", currency);
+                        return "ZWD";
+                    });
+                else
+                    message.currency = currencyMap[currency];
             }
 
-            // The owner and subs copme from a top-level [author-type].
+            // The owner and subs come from a top-level [author-type].
             const authorType = node.getAttribute("author-type");
             if (typeof authorType === "string") {
                 if (authorType.includes("owner")) {
@@ -286,11 +282,6 @@
                 }
                 // I don't think YouTube staff will ever use live chat?
             });
-
-            if (tag == 'yt-live-chat-paid-message-renderer') {
-                console.log("superchat", node);
-            }
-
 
             messages.push(message);
         });

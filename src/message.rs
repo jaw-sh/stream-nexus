@@ -31,6 +31,14 @@ pub struct Message {
     pub is_staff: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, ActixMessage, Clone)]
+#[rtype(result = "()")]
+pub struct LivestreamUpdate {
+    pub platform: String,
+    pub messages: Option<Vec<Message>>,
+    pub viewers: Option<u64>,
+}
+
 #[derive(Debug, Serialize)]
 struct JsonWrapper<'a> {
     #[serde(flatten)]

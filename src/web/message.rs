@@ -36,13 +36,16 @@ impl Message for Content {
     type Result = ();
 }
 
-/// For rendering the dashboard
-pub struct GetDashboardData;
+/// Request for recent chat messages.
+pub struct RecentMessages;
 
-pub struct DashboardData {
-    pub super_chats: Vec<ChatMessage>,
+impl Message for RecentMessages {
+    type Result = Vec<ChatMessage>;
 }
 
-impl Message for GetDashboardData {
-    type Result = DashboardData;
+/// Request for paid messages.
+pub struct PaidMessages;
+
+impl Message for PaidMessages {
+    type Result = Vec<ChatMessage>;
 }

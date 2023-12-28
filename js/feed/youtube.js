@@ -27,6 +27,23 @@
 // @run-at document-start
 // ==/UserScript==
 
+//
+// Monkeypatch Fetch
+//
+setInterval(() => {
+    // I tried very hard to get this to play nice, but YouTube has its own fetch monkeypatch and they just do not get along.
+    const windowFetch = window.fetch;
+    if (windowFetch.sneed_yt_monkeypatch_fetch !== true) {
+        console.log("[SNEED] Monkeypatching fetch()")
+        const newFetch = async (url, options, ...args) => {
+            console.log("[SNEED] Monkeypatched fetch.", this);
+            return windowFetch(url, options, ...args);
+        };
+        newFetch.sneed_yt_monkeypatch_fetch = true;
+        window.fetch = newFetch;
+    }
+}, 1000);
+
 (function () {
     'use strict';
 
@@ -289,6 +306,178 @@
         return messages;
     };
 })();
+
+// These updates flood continuously during livechat.
+// https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false
+//{
+//    "responseContext": {
+//        "serviceTrackingParams": [
+//            {
+//                "service": "CSI",
+//                "params": [
+//                    {
+//                        "key": "c",
+//                        "value": "WEB"
+//                    },
+//                    {
+//                        "key": "cver",
+//                        "value": "2.20231219.04.00"
+//                    },
+//                    {
+//                        "key": "yt_li",
+//                        "value": "1"
+//                    },
+//                    {
+//                        "key": "GetLiveChat_rid",
+//                        "value": "0x913245056f88e7ca"
+//                    }
+//                ]
+//            },
+//            {
+//                "service": "GFEEDBACK",
+//                "params": [
+//                    {
+//                        "key": "logged_in",
+//                        "value": "1"
+//                    },
+//                    {
+//                        "key": "e",
+//                        "value": "23804281,23885490,23946420,23966208,23983296,23986019,23998056,24004644,24007246,24034168,24036948,24077241,24080738,24108447,24120819,24135310,24140247,24166867,24181174,24187377,24208765,24241378,24255543,24255545,24260378,24288664,24290971,24367580,24367698,24377598,24377909,24382552,24385728,24387949,24390675,24428788,24428941,24428945,24439361,24451319,24453989,24458839,24468724,24485421,24495712,24506515,24515423,24518452,24524098,24525811,24526642,24526770,24526787,24526794,24526801,24526804,24526811,24526827,24528552,24528557,24528577,24528584,24528644,24528647,24528659,24528668,24531225,24531254,24537200,24539025,24542367,24542452,24546059,24546075,24548627,24548629,24549786,24550458,24559327,24559699,24560416,24561210,24561384,24566687,24589493,24589913,24694842,24697069,24698453,24699899,39324569,39325337,39325345,39325405,39325424,39325428,39325489,39325496,39325500,39325515,39325525,39325532,51003636,51004018,51006181,51009781,51009900,51010235,51012165,51012291,51012659,51014091,51014900,51016856,51017346,51019626,51020570,51021953,51025415,51026715,51026824,51027870,51028271,51029412,51030101,51031341,51032410,51033399,51033577,51035288,51035885,51036473,51036511,51037344,51037349,51037540,51037819,51037893,51038399,51038518,51038805,51039200,51039493,51041282,51041331,51041497,51043948,51045885,51045889,51045969,51046754,51047534,51048240,51048279,51049006,51050361,51052759,51053689,51055129,51055136,51055564,51056261,51056270,51057501,51057534,51057746,51057811,51057822,51057848,51057857,51057863,51059545,51059572,51059972,51060895,51061018,51061487,51063125,51063136,51063147,51063154,51063643,51064006,51064281,51064594,51065651,51065706,51068869,51069088,51069269,51069838,51070203,51070732,51072103,51072447,51072748,51073619,51074062,51074183,51074391,51074608,51074662,51074717,51074739,51075839,51076209,51077149,51078193,51079309,51079353,51080182,51080510,51080714,51080903,51081382,51082368,51083014,51083234,51083862,51084277,51084290,51084589,51084695,51086857,51090887"
+//                    }
+//                ]
+//            },
+//            {
+//                "service": "GUIDED_HELP",
+//                "params": [
+//                    {
+//                        "key": "logged_in",
+//                        "value": "1"
+//                    }
+//                ]
+//            },
+//            {
+//                "service": "ECATCHER",
+//                "params": [
+//                    {
+//                        "key": "client.version",
+//                        "value": "2.20231219"
+//                    },
+//                    {
+//                        "key": "client.name",
+//                        "value": "WEB"
+//                    },
+//                    {
+//                        "key": "client.fexp",
+//                        "value": "24506515,51083234,24453989,51078193,24524098,51065651,51064594,24698453,51012291,51045889,51033577,51073619,24531225,24549786,39325337,51057848,51084277,51037540,24468724,51038518,51074662,24390675,51076209,51037893,51048240,24537200,51026824,24528644,39325525,51014900,51050361,24526642,24548629,39325532,51026715,24187377,51057746,39325500,39325428,51063154,51057811,51016856,24528584,24560416,51063147,24528577,51029412,51041331,51059572,51010235,23885490,51041282,51017346,51084695,51070732,51074183,24428945,51074608,39325405,24697069,51012165,24526827,24550458,51068869,24589493,51064281,24559699,51009900,51006181,24377598,51004018,51074062,51014091,51074717,24526804,51081382,51045885,24526811,39324569,51020570,24566687,51047534,51069838,24166867,51063136,51052759,51075839,51037819,24559327,24451319,24542452,24377909,51080903,24515423,51028271,24241378,24548627,51069269,24458839,24135310,24080738,51077149,51036511,51059972,51009781,51072447,51019626,51070203,51061487,24699899,23946420,51057863,51031341,24528557,51043948,24526787,24589913,24385728,24518452,24526794,51059545,51069088,24526801,24255543,51084290,24531254,23804281,24428941,51090887,24561384,51072103,39325489,51086857,24546059,51025415,39325345,39325496,39325424,51041497,51061018,51063125,24077241,24495712,51063643,51079309,51057501,51083862,51012659,24525811,39325515,51055136,51046754,23998056,51060895,24004644,51032410,24007246,24255545,51074391,24367580,24036948,24140247,51079353,51045969,51055129,24387949,24539025,51080510,24120819,51030101,23983296,24428788,51065706,24528668,51003636,51037349,51038399,24260378,51080714,24528647,24290971,23966208,51082368,51056270,51053689,24208765,24108447,51080182,51036473,24542367,51027870,51049006,24181174,51021953,51084589,51048279,51039493,24288664,23986019,51083014,24528659,51064006,51037344,51074739,51057534,51033399,51057857,24694842,24034168,24485421,24382552,51035288,51035885,51056261,51072748,24561210,24528552,51055564,51038805,24526770,24367698,24546075,51039200,24439361,51057822"
+//                    }
+//                ]
+//            }
+//        ],
+//        "mainAppWebResponseContext": {
+//            "datasyncId": "111825020563651229171||",
+//            "loggedOut": false,
+//            "trackingParam": "kV9fmPxhojXCz39TnrslLKPQSQR"
+//        },
+//        "webResponseContextExtensionData": {
+//            "hasDecorated": true
+//        }
+//    },
+//    "continuationContents": {
+//        "liveChatContinuation": {
+//            "continuations": [
+//                {
+//                    "invalidationContinuationData": {
+//                        "invalidationId": {
+//                            "objectSource": 1056,
+//                            "objectId": "Y2hhdH5qZktmUGZ5SlJka341Njc4OTg4",
+//                            "topic": "chat~jfKfPfyJRdk~5678988",
+//                            "subscribeToGcmTopics": true,
+//                            "protoCreationTimestampMs": "1703696414487"
+//                        },
+//                        "timeoutMs": 10000,
+//                        "continuation": "0ofMyAObAhpeQ2lrcUp3b1lWVU5UU2pSbmExWkROazV5ZGtsSk9IVnRlblJtTUU5M0VndHFaa3RtVUdaNVNsSmtheG9UNnFqZHVRRU5DZ3RxWmt0bVVHWjVTbEprYXlBQk1BQSUzRCiuotbbi7CDAzAAQAJKcggBGAAgAEoKCAEQABgAIAAwAFD3tNqZi7CDA1gEeACiAQ8SCwiQsLGsBhDF6_NpGgCqARAQAhoCCAEiAggBKgQIABAAsAEAwAEAyAGSj_bVi7CDA-IBDAiRr7GsBhCZ7uO_A-gBAPABAPgBAIgCAJACAFDGtorci7CDA1iSkcS1_amDA4IBBAgEGAGIAQCaAQIIAKAByuTc3IuwgwOyAQC6AQIICtABhLCxrAY%3D"
+//                    }
+//                }
+//            ],
+//            "actions": [
+//                {
+//                    "addChatItemAction": {
+//                        "item": {
+//                            "liveChatTextMessageRenderer": {
+//                                "message": {
+//                                    "runs": [
+//                                        {
+//                                            "text": "@tsunami "
+//                                        },
+//                                        {
+//                                            "emoji": {
+//                                                "emojiId": "💀",
+//                                                "shortcuts": [
+//                                                    ":skull:"
+//                                                ],
+//                                                "searchTerms": [
+//                                                    "skull"
+//                                                ],
+//                                                "image": {
+//                                                    "thumbnails": [
+//                                                        {
+//                                                            "url": "https://www.youtube.com/s/gaming/emoji/0f0cae22/emoji_u1f480.svg"
+//                                                        }
+//                                                    ],
+//                                                    "accessibility": {
+//                                                        "accessibilityData": {
+//                                                            "label": "💀"
+//                                                        }
+//                                                    }
+//                                                }
+//                                            }
+//                                        }
+//                                    ]
+//                                },
+//                                "authorName": {
+//                                    "simpleText": "Chahd "
+//                                },
+//                                "authorPhoto": {
+//                                    "thumbnails": [
+//                                        {
+//                                            "url": "https://yt4.ggpht.com/dWDyYvMhp6Qah4J0EGJZ_UffjPO99ZWZyNs84nu8Ybj-ig_8pIIipIc88yaG1gfAPaSFWKDG=s32-c-k-c0x00ffffff-no-rj",
+//                                            "width": 32,
+//                                            "height": 32
+//                                        },
+//                                        {
+//                                            "url": "https://yt4.ggpht.com/dWDyYvMhp6Qah4J0EGJZ_UffjPO99ZWZyNs84nu8Ybj-ig_8pIIipIc88yaG1gfAPaSFWKDG=s64-c-k-c0x00ffffff-no-rj",
+//                                            "width": 64,
+//                                            "height": 64
+//                                        }
+//                                    ]
+//                                },
+//                                "contextMenuEndpoint": {
+//                                    "commandMetadata": {
+//                                        "webCommandMetadata": {
+//                                            "ignoreNavigation": true
+//                                        }
+//                                    },
+//                                    "liveChatItemContextMenuEndpoint": {
+//                                        "params": "Q2g0S0hBb2FRMUJtWHpGT2RVeHpTVTFFUm1FMFVERm5RV1JEYjBWSWJGRWFLU29uQ2hoVlExTktOR2RyVmtNMlRuSjJTVWs0ZFcxNmRHWXdUM2NTQzJwbVMyWlFabmxLVW1ScklBRW9CRElhQ2hoVlExbFlWalp3TFY5bVNESk9NVzkzTlUwMFJYQlRVSGM0QWtnQVVBRSUzRA=="
+//                                    }
+//                                },
+//                                "id": "ChwKGkNQZl8xTnVMc0lNREZhNFAxZ0FkQ29FSGxR",
+//                                "timestampUsec": "1703696412283182",
+//                                "authorExternalChannelId": "UCYXV6p-_fH2N1ow5M4EpSPw",
+//                                "contextMenuAccessibility": {
+//                                    "accessibilityData": {
+//                                        "label": "Chat actions"
+//                                    }
+//                                }
+//                            }
+//                        },
+//                        "clientId": "CPf_1NuLsIMDFa4P1gAdCoEHlQ"
+//                    }
+//                }
+//            ]
+//        }
+//    }
+//}
 
 //
 // https://www.youtube.com/live/UicP06m9IQY

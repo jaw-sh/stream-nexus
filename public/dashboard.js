@@ -3,14 +3,14 @@ var donation_history = document.querySelector("#donation-history");
 var socket = null;
 (function () {
     // Create WebSocket connection.
-    socket = new WebSocket("ws://localhost:1350/chat.ws");
+    socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
     const reconnect = () => {
         // check if socket is connected
         if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
             return true;
         }
         // attempt to connect
-        socket = new WebSocket("ws://localhost:1350/chat.ws");
+        socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
     };
 
     // Connection opened

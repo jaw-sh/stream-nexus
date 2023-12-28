@@ -4,7 +4,7 @@ mod server;
 
 pub use client::ChatClient;
 pub use message::Content as ChatMessage;
-pub use message::GetDashboardData;
+pub use message::PaidMessages;
 pub use server::ChatServer;
 
 use actix::Addr;
@@ -17,8 +17,8 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Template)]
-#[template(path = "index.html")]
-struct IndexTemplate {}
+#[template(path = "chat.html")]
+struct ChatTemplate {}
 
 #[derive(Template)]
 #[template(path = "dashboard.html")]
@@ -26,9 +26,9 @@ struct DashboardTemplate {
     super_chats: Vec<crate::message::Message>,
 }
 
-#[actix_web::get("/")]
-pub async fn index() -> impl Responder {
-    IndexTemplate {}
+#[actix_web::get("/chat")]
+pub async fn chat() -> impl Responder {
+    ChatTemplate {}
 }
 
 #[actix_web::get("/dashboard")]
@@ -37,13 +37,8 @@ pub async fn dashboard(req: HttpRequest) -> impl Responder {
         .app_data::<Addr<ChatServer>>()
         .expect("ChatServer missing in app data!")
         .clone();
-
     DashboardTemplate {
-        super_chats: chat_server
-            .send(message::GetDashboardData)
-            .await
-            .unwrap()
-            .super_chats,
+        super_chats: chat_server.send(PaidMessages).await.unwrap(),
     }
 }
 

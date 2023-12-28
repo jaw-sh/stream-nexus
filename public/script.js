@@ -2,14 +2,14 @@
     const main = document.querySelector("main");
 
     // Create WebSocket connection.
-    const socket = new WebSocket("ws://localhost:1350/chat.ws");
+    const socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
     const reconnect = () => {
         // check if socket is connected
         if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
             return true;
         }
         // attempt to connect
-        const socket = new WebSocket("ws://localhost:1350/chat.ws");
+        const socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
     };
 
     // Connection opened

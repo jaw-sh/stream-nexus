@@ -7,6 +7,7 @@ use super::ChatMessage;
 use super::ChatServer;
 use super::CLIENT_TIMEOUT;
 use super::HEARTBEAT_INTERVAL;
+use crate::message::LivestreamUpdate;
 
 pub struct ChatClient {
     /// Connection ID
@@ -95,6 +96,28 @@ impl Actor for ChatClient {
     /// We register ws session with ChatServer
     fn started(&mut self, ctx: &mut Self::Context) {
         self.start_heartbeat(ctx);
+
+        // Send message::RecentMessages to the server and await the return values
+        let fut = self
+            .server
+            .send(message::RecentMessages)
+            .into_actor(self)
+            .then(|res, _, ctx| {
+                match res {
+                    Ok(messages) => {
+                        // Send the messages to the client
+                        for message in messages {
+                            ctx.text(message.to_json());
+                        }
+                    }
+                    Err(err) => {
+                        log::error!("Error retrieving recent messages: {:?}", err);
+                    }
+                }
+                fut::ready(())
+            });
+
+        ctx.spawn(fut);
     }
 
     fn stopping(&mut self, ctx: &mut Self::Context) -> Running {
@@ -133,15 +156,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatClient {
                 self.last_heartbeat_at = Instant::now();
             }
             ws::Message::Text(text) => {
-                match serde_json::from_str::<Vec<crate::message::Message>>(&text) {
-                    Ok(messages) => {
-                        for message in messages {
-                            self.send_or_reply(
-                                ctx,
-                                ChatMessage {
-                                    chat_message: message,
-                                },
-                            );
+                match serde_json::from_str::<LivestreamUpdate>(&text) {
+                    Ok(update) => {
+                        if let Some(messages) = update.messages {
+                            for message in messages {
+                                self.send_or_reply(
+                                    ctx,
+                                    ChatMessage {
+                                        chat_message: message,
+                                    },
+                                );
+                            }
                         }
                     }
                     Err(err) => {

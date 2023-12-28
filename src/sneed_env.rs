@@ -8,6 +8,8 @@ pub fn get_env() {
         ("RUST_DEBUG", "1"),
         ("RUST_BACKTRACE", "1"),
         ("RUST_LOG", "debug"),
+        ("SERVER_IP", "127.0.0.1"),
+        ("SERVER_PORT", "1350"),
     ]);
 
     match dotenv() {

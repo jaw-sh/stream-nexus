@@ -96,28 +96,6 @@ impl Actor for ChatClient {
     /// We register ws session with ChatServer
     fn started(&mut self, ctx: &mut Self::Context) {
         self.start_heartbeat(ctx);
-
-        // Send message::RecentMessages to the server and await the return values
-        let fut = self
-            .server
-            .send(message::RecentMessages)
-            .into_actor(self)
-            .then(|res, _, ctx| {
-                match res {
-                    Ok(messages) => {
-                        // Send the messages to the client
-                        for message in messages {
-                            ctx.text(message.to_json());
-                        }
-                    }
-                    Err(err) => {
-                        log::error!("Error retrieving recent messages: {:?}", err);
-                    }
-                }
-                fut::ready(())
-            });
-
-        ctx.spawn(fut);
     }
 
     fn stopping(&mut self, ctx: &mut Self::Context) -> Running {

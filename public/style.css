@@ -167,6 +167,10 @@ main {
     box-shadow: 2px 0px var(--vk--brand-shadow, rgb(0, 119, 255, 0.66));
 }
 
+.msg--p-X .msg-user::before {
+    content: '𝕏 @';
+}
+
 .msg--t {
     --message-bg-color: #1565C0;
     --message-head-color: #1565C0;

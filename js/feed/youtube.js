@@ -6,11 +6,9 @@
 // @author Joshua Moon <josh@josh.rs>
 // @homepageURL https://github.com/jaw-sh/stream-nexus
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
-// @include https://www.youtube.com/watch?v=*
-// @include https://www.youtube.com/live/*
-// @include https://www.youtube.com/live_chat?v=*
-// @include https://www.youtube.com/live_chat?is_popout=1&v=*
+// @match https://www.youtube.com/live_chat?*
 // @connect *
+// @grant unsafeWindow
 // @grant GM_getValue
 // @grant GM_setValue
 // @grant GM_deleteValue
@@ -27,30 +25,59 @@
 // @run-at document-start
 // ==/UserScript==
 
-//
-// Monkeypatch Fetch
-//
-setInterval(() => {
-    // I tried very hard to get this to play nice, but YouTube has its own fetch monkeypatch and they just do not get along.
-    const windowFetch = window.fetch;
-    if (windowFetch.sneed_yt_monkeypatch_fetch !== true) {
-        console.log("[SNEED] Monkeypatching fetch()")
-        const newFetch = async (url, options, ...args) => {
-            console.log("[SNEED] Monkeypatched fetch.", this);
-            return windowFetch(url, options, ...args);
-        };
-        newFetch.sneed_yt_monkeypatch_fetch = true;
-        window.fetch = newFetch;
-    }
-}, 1000);
-
-(function () {
+(async function () {
     'use strict';
+
+    console.log("[SNEED] Attaching to YouTube.");
+    const UUID = await import('https://jspm.dev/uuid');
+    const NAMESPACE = "fd60ac36-d6b5-49dc-aee6-b0d87d130582";
+    const PLATFORM = "YouTube";
+
+    //
+    // Fetch Monkeypatch
+    //
+    if (unsafeWindow.fetch.sneed_patch !== true) {
+        console.log("[SNEED] Monkeypatching fetch()")
+        const { fetch: originalFetch } = unsafeWindow;
+
+        unsafeWindow.fetch = async (...args) => {
+            let [resource, config] = args;
+            const response = originalFetch(resource, config);
+            // fetch() is wrapped in trycatch throughout YouTube's code.
+            // If this fails, it silently fails, and you will disconnect from chat.
+            // Ensure that any time you touch this response, you return the original response.
+            response.then(async (data) => {
+                const json = await data.clone().json();
+                if (
+                    json.continuationContents !== undefined &&
+                    json.continuationContents.liveChatContinuation !== undefined &&
+                    json.continuationContents.liveChatContinuation.actions !== undefined
+                ) {
+                    json.continuationContents.liveChatContinuation.actions.forEach((action) => {
+                        if (action.addChatItemAction !== undefined) {
+                            const message = HANDLE_MESSAGES([action.addChatItemAction]);
+                            if (message.length > 0) {
+                                SEND_MESSAGES(message);
+                            }
+                        }
+                        else {
+                            console.log("[SNEED::YouTube] Unknown action.", action);
+                        }
+                    });
+                }
+
+                return data;
+            });
+            return response;
+        };
+        unsafeWindow.fetch.sneed_patch = true;
+    }
+
 
     //
     // Socket Logic
     //
-    let CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
+    let CHAT_SOCKET = new WebSocket("ws://127.0.0.2:1350/chat.ws");
     const reconnect = () => {
         // check if socket is connected
         if (CHAT_SOCKET.readyState === WebSocket.OPEN || CHAT_SOCKET.readyState === WebSocket.CONNECTING) {
@@ -58,7 +85,7 @@ setInterval(() => {
         }
         else {
             // attempt to connect if disconnected
-            CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
+            CHAT_SOCKET = new WebSocket("ws://127.0.0.2:1350/chat.ws");
         }
     };
 
@@ -88,7 +115,7 @@ setInterval(() => {
     const CREATE_MESSAGE = () => {
         return {
             id: crypto.randomUUID(),
-            platform: "IDK",
+            platform: PLATFORM,
             username: "DUMMY_USER",
             message: "",
             sent_at: Date.now(), // System timestamp for display ordering.
@@ -104,47 +131,42 @@ setInterval(() => {
         };
     };
 
-    const BIND_MUTATION_OBSERVER = () => {
-        const targetNode = GET_CHAT_CONTAINER();
+    const HANDLE_MESSAGES = (actions) => {
+        const messages = [];
 
-        if (targetNode === null) {
-            console.log("[SNEED::YouTube] No chat container found.")
-            return false;
-        }
+        actions.forEach((action) => {
+            const message = CREATE_MESSAGE();
+            message.id = UUID.v5(action.item.liveChatTextMessageRenderer.id, NAMESPACE);
+            message.username = action.item.liveChatTextMessageRenderer.authorName.simpleText;
+            message.avatar = action.item.liveChatTextMessageRenderer.authorPhoto.thumbnails.at(-1).url;
+            message.sent_at = parseInt(action.item.liveChatTextMessageRenderer.timestampUsec / 1000);
 
-        if (document.querySelector(".sneed-chat-container") !== null) {
-            console.log("[SNEED::YouTube] Chat container already bound, aborting.");
-            return false;
-        }
+            action.item.liveChatTextMessageRenderer.message.runs.forEach((run) => {
+                if (run.text !== undefined) {
+                    message.message += run.text;
+                }
+                else if (run.emoji !== undefined) {
+                    message.message += `<img class="emoji" src="${run.emoji.image.thumbnails.at(-1).url}" alt="${run.emoji.emojiId}" />`;
+                }
+                else {
+                    console.log("[SNEED::YouTube] Unknown run.", run);
+                }
+            });
 
-        targetNode.classList.add("sneed-chat-container");
-
-        const observer = new MutationObserver(MUTATION_OBSERVE);
-        observer.observe(targetNode, {
-            childList: true,
-            attributes: false,
-            subtree: false
+            console.log(message);
+            messages.push(message);
         });
 
-        GET_EXISTING_MESSAGES();
-        return true;
-    };
-
-    const MUTATION_OBSERVE = (mutationList, observer) => {
-        for (const mutation of mutationList) {
-            if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-                const messages = HANDLE_MESSAGES(mutation.addedNodes);
-                if (messages.length > 0) {
-                    SEND_MESSAGES(messages);
-                }
-            }
-        }
+        return messages;
     };
 
     const SEND_MESSAGES = (messages) => {
         // check if socket is open
         if (CHAT_SOCKET.readyState === WebSocket.OPEN) {
-            CHAT_SOCKET.send(JSON.stringify(messages));
+            CHAT_SOCKET.send(JSON.stringify({
+                platform: PLATFORM,
+                messages: messages,
+            }));
         }
         else {
             // add to queue if not
@@ -154,157 +176,6 @@ setInterval(() => {
         }
     };
 
-    setInterval(() => {
-        if (document.querySelector(".sneed-chat-container") !== null)
-            return;
-        // YT-Specific: Enforce live chat.
-        if (YOUTUBE_LIVE_CHAT()) {
-            const chatContainer = GET_CHAT_CONTAINER();
-            if (chatContainer !== null && !chatContainer.classList.contains("sneed-chat-container")) {
-                console.log("[SNEED::YouTube] Binding chat container.");
-                BIND_MUTATION_OBSERVER();
-            }
-        }
-    }, 1000);
-
-
-    //
-    // Specific Implementations
-    //
-
-    // Attempts to switch to Live Chat from Top Chat.
-    // Returns TRUE if we can proceed to checking the MutationObserver is wokring.
-    // Returns FALSE if the chat isn't found.
-    const YOUTUBE_LIVE_CHAT = () => {
-        const chatContainer = GET_CHAT_CONTAINER();
-
-        if (chatContainer === null) {
-            console.log("[SNEED::YouTube] Awaiting live chat container...");
-            return false;
-        }
-
-        const chatApp = chatContainer.closest("yt-live-chat-app");
-        const dropdownEl = chatApp.querySelector("#label.yt-dropdown-menu");
-        const liveEl = chatApp.querySelectorAll("#item-with-badge.yt-dropdown-menu")[1];
-
-        if (dropdownEl === null || liveEl === undefined) {
-            console.log("[SNEED::YouTube] No live chat dropdown menu.");
-            console.log(dropdownEl, liveEl);
-            return false;
-        }
-
-        if (dropdownEl.textContent.trim() === liveEl.textContent.trim())
-            return true; // We're already live chat.
-
-        liveEl.closest("a").click();
-        console.log("[SNEED::YouTube] Live chat activated. Eat it, Neal!");
-        return true;
-    }
-
-    const GET_CHAT_CONTAINER = () => {
-        const chatFrame = document.querySelector("#chatframe.ytd-live-chat-frame");
-        const targetDoc = chatFrame === null ? document : chatFrame.contentWindow.document;
-        return targetDoc.querySelector("#items.yt-live-chat-item-list-renderer");
-    };
-
-    const GET_EXISTING_MESSAGES = () => {
-        console.log("[SNEED::YouTube] Checking for existing messages.");
-        const nodes = GET_CHAT_CONTAINER().childNodes;
-
-        if (nodes.length > 0) {
-            const messages = HANDLE_MESSAGES(nodes);
-            if (messages.length > 0) {
-                SEND_MESSAGES(messages);
-            }
-        }
-    }
-
-    const HANDLE_MESSAGES = (nodes) => {
-        const messages = [];
-
-        nodes.forEach((node) => {
-            const tag = node.tagName.toLowerCase();
-            if (!(tag === "yt-live-chat-text-message-renderer" || tag === "yt-live-chat-paid-message-renderer"))
-                return;
-
-            let message = CREATE_MESSAGE();
-            message.platform = "YouTube";
-            message.received_at = Date.now(); // Rumble provides no information.
-
-            message.avatar = node.querySelector("yt-img-shadow img").src;
-            message.username = node.querySelector("[id='author-name']").innerText;
-            message.message = node.querySelector("[id='message']").innerHTML;
-
-            if (tag === "yt-live-chat-paid-message-renderer") {
-                const dono = node.querySelector("#purchase-amount").innerText;
-                const amt = dono.replace(/[^0-9.-]+/g, "");
-                message.amount = Number(amt);
-                // get index of first number or whitespace in dono
-                //const currency = dono.substring(0, dono.indexOf(" ")).trim();
-                const currency = dono.split(/[0-9 ]/)[0].trim();
-
-                // ## TODO ## YT superchats are MANY currencies.
-                const currencyMap = {
-                    // "$": "USD",
-                    "US$": "USD", // Looks like it's US$ now.
-                    "CA$": "CAD",
-                    "C$": "NIO", // I think this is Nicaraguan Cordoba and not Canadian Dollar.
-                    "A$": "AUD",
-                    "NZ$": "NZD",
-                    "NT$": "TWD",
-                    "R$": "BRL",
-                    "MX$": "MXN",
-                    "HK$": "HKD",
-                    "£": "GBP",
-                    "€": "EUR",
-                    "₽": "RUB",
-                    "₹": "INR",
-                    "¥": "JPY",
-                    "₩": "KRW",
-                    "₱": "PHP",
-                    "₫": "VND",
-                };
-
-                if (currencyMap[currency] === undefined)
-                    message.currency = currency.length === 3 ? currency : (() => {
-                        console.error("[SNEED::YouTube] Unknown currency:", currency);
-                        return "ZWD";
-                    });
-                else
-                    message.currency = currencyMap[currency];
-            }
-
-            // The owner and subs come from a top-level [author-type].
-            const authorType = node.getAttribute("author-type");
-            if (typeof authorType === "string") {
-                if (authorType.includes("owner")) {
-                    message.is_owner = true;
-                }
-                if (authorType.includes("moderator")) {
-                    message.is_mod = true;
-                }
-                if (authorType.includes("member")) {
-                    message.is_sub = true;
-                }
-            }
-
-            // "Verified" is exclusively denominated by a badge, but other types can be found that way too.
-            // Whatever, just check the badges too.
-            node.querySelectorAll("yt-live-chat-author-badge-renderer.yt-live-chat-author-chip").forEach((badge) => {
-                switch (badge.getAttribute("type")) {
-                    case "moderator": message.is_mod = true; break;
-                    case "verified": message.is_verified = true; break;
-                    case "member": message.is_sub = true; break;
-
-                }
-                // I don't think YouTube staff will ever use live chat?
-            });
-
-            messages.push(message);
-        });
-
-        return messages;
-    };
 })();
 
 // These updates flood continuously during livechat.

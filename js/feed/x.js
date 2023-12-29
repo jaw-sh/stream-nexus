@@ -37,6 +37,8 @@
 
 (function () {
     'use strict';
+
+    console.log("[SNEED] Attaching to 𝕏, the social media platform formerly known as Twitter.");
     const PLATFORM = "X";
 
     //

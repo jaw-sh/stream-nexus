@@ -16,6 +16,7 @@ pub struct ChatServer {
     pub clients: HashMap<usize, Connection>,
     pub chat_messages: HashMap<Uuid, ChatMessage>,
     pub paid_messages: Vec<Uuid>,
+    pub last_message: Option<Uuid>,
     pub exchange_rates: ExchangeRates,
 }
 
@@ -27,8 +28,19 @@ impl ChatServer {
             clients: HashMap::with_capacity(100),
             chat_messages: HashMap::with_capacity(100),
             paid_messages: Vec::with_capacity(100),
+            last_message: None,
             exchange_rates,
         }
+    }
+
+    // Check if msg is a duplicate of the previous message.
+    fn is_duplicate(&self, msg: &ChatMessage) -> bool {
+        if self.last_message.is_none() {
+            return false;
+        }
+
+        let lm = self.chat_messages.get(&self.last_message.unwrap()).unwrap();
+        lm.username == msg.username && lm.message == msg.message
     }
 }
 
@@ -68,13 +80,21 @@ impl Handler<message::Content> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: message::Content, _: &mut Context<Self>) -> Self::Result {
-        log::debug!("[ChatServer] {}", msg.chat_message.to_console_msg());
+        let mut chat_msg = msg.chat_message;
+
+        // Filter out contiguous duplicate messages to limit spam.
+        // Don't filter paid chat messages. Checking this first for efficiency.
+        if !chat_msg.is_premium() && self.is_duplicate(&chat_msg) {
+            log::info!("Filtering message {}", chat_msg.to_console_msg());
+            return;
+        }
+
+        log::debug!("[ChatServer] {}", chat_msg.to_console_msg());
 
         let usd = self
             .exchange_rates
-            .get_usd(&msg.chat_message.currency, &msg.chat_message.amount);
+            .get_usd(&chat_msg.currency, &chat_msg.amount);
 
-        let mut chat_msg = msg.chat_message;
         let id = chat_msg.id.to_owned();
         chat_msg.amount = usd;
         chat_msg.currency = "USD".to_string();
@@ -96,6 +116,9 @@ impl Handler<message::Content> for ChatServer {
                 self.paid_messages.reserve(100);
             }
             self.paid_messages.push(id);
+        } else {
+            // Only backup free messages for spam filtering.
+            self.last_message = Some(id);
         }
     }
 }

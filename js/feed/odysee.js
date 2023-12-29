@@ -50,7 +50,6 @@
                         switch (json.type) {
                             case "delta":
                                 const messages = HANDLE_MESSAGES([json.data.comment]);
-                                console.log("Socket:", messages);
                                 if (messages.length > 0) {
                                     SEND_MESSAGES(messages);
                                 }
@@ -196,7 +195,6 @@
 
     const SEND_MESSAGES = (messages) => {
         // check if socket is open
-        console.log(CHAT_SOCKET.readyState, WebSocket.OPEN);
         if (CHAT_SOCKET.readyState === WebSocket.OPEN) {
             CHAT_SOCKET.send(JSON.stringify({
                 platform: PLATFORM,

@@ -25,37 +25,90 @@
 // @run-at document-start
 // ==/UserScript==
 
-(function () {
+document.addEventListener('DOMContentLoaded', async function () {
     'use strict';
 
+    console.log("[SNEED] Attaching to Rumble.");
+    const UUID = await import('https://jspm.dev/uuid');
+    const NAMESPACE = "5ceefcfb-4aa5-443a-bea6-1f8590231471";
+    const PLATFORM = "Rumble";
+
     //
-    // Socket Logic
+    // Live Counter
     //
-    let CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
-    const reconnect = () => {
+    (function () {
+        let previous = 0;
+        const observer = new MutationObserver(function (mutations, observer) {
+            const value = parseInt(mutations[0].target.innerText.trim().replace(/,/g, ''), 10); // turns "504 watching" to 504
+            if (!isNaN(value) && value != previous) {
+                previous = value;
+                console.log("[SNEED] Updating viewers:", value);
+            }
+        });
+        observer.observe(document.getElementsByClassName("video-header-live-info")[0], {
+            attributes: false,
+            childList: true,
+            subtree: true
+        });
+    })();
+
+    //
+    // Chat Socket
+    //
+    const WS_CHAT = new EventSource(`https://web7.rumble.com/chat/api/chat/${document.getElementsByClassName("rumbles-vote-pill")[0].dataset.id}/stream`, { withCredentials: true });
+    WS_CHAT.onmessage = function (event) {
+        switch (event.type) {
+            case "init":
+            case "message":
+                let messages = HANDLE_MESSAGES(JSON.parse(event.data));
+                if (messages.length > 0) {
+                    SEND_MESSAGES(messages);
+                }
+                break;
+        }
+    };
+    WS_CHAT.error = function () {
+        if (WS_CHAT.readyState == 2 && !reconnection_timeout_id) {
+            reconnection_timeout_id = setTimeout(
+                function () {
+                    reconnection_timeout_id = 0;
+                    if (should_keep_alive) {
+                        eventSource = rumbleSocketConnect();
+                    }
+                },
+                3000,
+            );
+        }
+    };
+
+    //
+    // SNEED Socket
+    //
+    const WS_SNEED = new WebSocket("ws://127.0.0.2:1350/chat.ws");
+    const WS_SNEED_RECONNECT = () => {
         // check if socket is connected
-        if (CHAT_SOCKET.readyState === WebSocket.OPEN || CHAT_SOCKET.readyState === WebSocket.CONNECTING) {
+        if (WS_SNEED.readyState === WebSocket.OPEN || WS_SNEED.readyState === WebSocket.CONNECTING) {
             return true;
         }
         else {
             // attempt to connect if disconnected
-            CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
+            WS_SNEED = new WebSocket("ws://127.0.0.2:1350/chat.ws");
         }
     };
 
     // Connection opened
-    CHAT_SOCKET.addEventListener("open", (event) => {
+    WS_SNEED.addEventListener("open", (event) => {
         console.log("[SNEED] Socket connection established.");
         SEND_MESSAGES(MESSAGE_QUEUE);
         MESSAGE_QUEUE = [];
     });
 
-    CHAT_SOCKET.addEventListener("close", (event) => {
+    WS_SNEED.addEventListener("close", (event) => {
         console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
-        setTimeout(function () { reconnect(); }, 3000);
+        setTimeout(WS_SNEED_RECONNECT, 3000);
     });
 
-    CHAT_SOCKET.addEventListener("error", (event) => {
+    WS_SNEED.addEventListener("error", (event) => {
         console.log("[SNEED] Socket has errored. Closing.", event.reason);
         alert("The SNEED chat socket could not connect. Ensure the web server is running and that Brave shields are off.");
         socket.close();
@@ -69,13 +122,12 @@
     const CREATE_MESSAGE = () => {
         return {
             id: crypto.randomUUID(),
-            platform: "IDK",
+            platform: PLATFORM,
             username: "DUMMY_USER",
             message: "",
             sent_at: Date.now(), // System timestamp for display ordering.
             received_at: Date.now(), // Local timestamp for management.
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
             amount: 0,
             currency: "ZWL",
             is_verified: false,
@@ -86,46 +138,79 @@
         };
     };
 
-    const BIND_MUTATION_OBSERVER = () => {
-        const targetNode = GET_CHAT_CONTAINER();
+    const HANDLE_MESSAGES = (json) => {
+        const messages = [];
+        const data = json.data;
 
-        if (targetNode === null) {
-            return false;
+        if (data.messages === undefined || data.users === undefined) {
+            console.log("[SNEED] Unexpected input:", data);
+            return messages;
         }
 
-        if (document.querySelector(".sneed-chat-container") !== null) {
-            console.log("[SNEED] Chat container already bound, aborting.");
-            return false;
-        }
+        data.messages.forEach((messageData, index) => {
+            const message = CREATE_MESSAGE();
+            const user = data.users.find((user) => user.id === messageData.user_id);
+            if (user === undefined) {
+                console.log("[SNEED] User not found:", messageData.user_id);
+                return;
+            }
 
-        targetNode.classList.add("sneed-chat-container");
+            message.id = UUID.v5(messageData.id, NAMESPACE);
+            message.sent_at = Date.parse(messageData.time);
+            message.message = messageData.text;
 
-        const observer = new MutationObserver(MUTATION_OBSERVE);
-        observer.observe(targetNode, {
-            childList: true,
-            attributes: false,
-            subtree: false
+            message.username = user.username;
+            if (user['image.1'] !== undefined) {
+                message.avatar = user['image.1'];
+            }
+
+            if (user.badges !== undefined) {
+                user.badges.forEach((badge) => {
+                    switch (badge) {
+                        case "admin":
+                            message.is_staff = true;
+                            break;
+                        case "moderator":
+                            message.is_mod = true;
+                            break;
+                        case "whale-gray":
+                        case "whale-blue":
+                        case "whale-yellow":
+                        case "locals":
+                        case "locals_supporter":
+                        case "recurring_subscription":
+                            message.is_sub = true;
+                            break;
+                        case "premium":
+                            break;
+                        case "verified":
+                            message.is_verified = true;
+                            break;
+                        default:
+                            console.log(`[SNEED] Unknown badge type: ${badge.type}`);
+                            break;
+                    }
+                });
+            }
+
+            if (messageData.rant !== undefined) {
+                message.amount = messageData.rant.price_cents / 100;
+                message.currency = "USD";
+            }
+
+            messages.push(message);
         });
 
-        GET_EXISTING_MESSAGES();
-        return true;
-    };
-
-    const MUTATION_OBSERVE = (mutationList, observer) => {
-        for (const mutation of mutationList) {
-            if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-                const messages = HANDLE_MESSAGES(mutation.addedNodes);
-                if (messages.length > 0) {
-                    SEND_MESSAGES(messages);
-                }
-            }
-        }
-    };
+        return messages;
+    }
 
     const SEND_MESSAGES = (messages) => {
         // check if socket is open
-        if (CHAT_SOCKET.readyState === WebSocket.OPEN) {
-            CHAT_SOCKET.send(JSON.stringify(messages));
+        if (WS_SNEED.readyState === WebSocket.OPEN) {
+            WS_SNEED.send(JSON.stringify({
+                platform: PLATFORM,
+                messages: messages
+            }));
         }
         else {
             // add to queue if not
@@ -134,130 +219,40 @@
             });
         }
     };
+});
 
-    setInterval(function () {
-        if (document.querySelector(".sneed-chat-container") === null) {
-            console.log("[SNEED] Binding chat container.")
-            BIND_MUTATION_OBSERVER();
-        }
-    }, 1000);
+//
+// JSON API
+//
 
+// Main stream
+// https://web7.rumble.com/chat/api/chat/####/stream?popup=true
 
-    //
-    // Specific Implementations
-    //
+// {"request_id":"mPdI9yjgFCa7TJ9r+iV0SFBZpj6TMb98x58FCf+n/dM","type":"messages","data":{"messages":[{"id":"1338270737490918023","time":"2023-12-24T22:07:28+00:00","user_id":"44434731","text":"If you are not eating your girls pussy someone else is","blocks":[{"type":"text.1","data":{"text":"If you are not eating your girls pussy someone else is"}}]}],"users":[{"id":"44434731","username":"Trudeauisretarded","link":"/user/Trudeauisretarded","is_follower":true,"image.1":"https://ak2.rmbl.ws/z0/R/u/G/P/RuGPc.asF-Trudeauisretarded-qy2hg0.jpeg","color":"#c38b1b"}],"channels":[[]]}}
 
-    const GET_CHAT_CONTAINER = () => {
-        return document.getElementById("chat-history-list");
-    };
+//{
+//    "id": "1343552535046803304",
+//    "time": "2023-12-28T15:40:23+00:00",
+//    "user_id": "122198260",
+//    "text": "LMAO",
+//    "blocks": [
+//      {
+//        "type": "text.1",
+//        "data": {
+//          "text": "LMAO"
+//        }
+//      }
+//    ],
+//    "rant": {
+//      "price_cents": 100,
+//      "duration": 120,
+//      "expires_on": "2023-12-28T15:42:23+00:00"
+//    }
+//  },
 
-    const GET_EXISTING_MESSAGES = () => {
-        console.log("[SNEED] Checking for existing messages.");
-        const nodes = document.querySelectorAll(".sneed-chat-container .chat-history--row");
-
-        if (nodes.length > 0) {
-            const messages = HANDLE_MESSAGES(nodes);
-            if (messages.length > 0) {
-                SEND_MESSAGES(messages);
-            }
-        }
-    };
-
-    const HANDLE_MESSAGES = (nodes) => {
-        const messages = [];
-
-        nodes.forEach((node) => {
-            let message = CREATE_MESSAGE();
-            message.platform = "Rumble";
-
-            const avatarEl = node.querySelector("img.chat-history--user-avatar");
-            const picEl = node.querySelector(".chat--profile-pic");
-            if (avatarEl !== null && avatarEl.src !== "") {
-                console.log("Avatar", avatarEl.src);
-                message.avatar = avatarEl.src;
-            }
-            else if (picEl !== null && picEl.style.backgroundImage !== "") {
-                message.avatar = picEl.style.backgroundImage.replace('url("', "").replace('")', "");
-                console.log("Profile Pic", picEl.style.backgroundImage);
-            }
-
-
-            if (node.classList.contains("chat-history--rant")) {
-                message.username = node.querySelector(".chat-history--rant-username").innerText;
-                message.message = node.querySelector(".chat-history--rant-text").innerHTML;
-                message.is_premium = true;
-                message.amount = parseFloat(node.querySelector(".chat-history--rant-price").innerText.replace("$", ""));
-                message.currency = "USD"; // Rumble rants are always USD.
-                console.log("Superchat", message);
-            }
-            else {
-                message.username = node.querySelector(".chat-history--username").innerText;
-                message.message = node.querySelector(".chat-history--message").innerHTML;
-            }
-
-            node.querySelectorAll(".chat-history--user-badge").forEach((badge) => {
-                if (badge.src.includes("moderator")) {
-                    message.is_mod = true;
-                }
-                else if (badge.src.includes("locals") || badge.src.includes("whale")) {
-                    message.is_sub = true;
-                }
-                else if (badge.src.includes("admin")) {
-                    // misnomer: this is the streamer.
-                    message.is_owner = true;
-                }
-                // Rumble staff badge unknown.
-            });
-
-            console.log(message);
-            messages.push(message);
-        });
-
-        return messages;
-    };
-})();
-
-// <li class="chat-history--row" data-message-user-id="u64 goes here" data-message-id="u64 goes here">
-// <img class="chat-history--user-avatar" src="https://sp.rmbl.ws/many/sub/dir/xxx.jpeg">
-// <div class="chat-history--message-wrapper">
-//   <div class="chat-history--username">
-//     <a target="_blank" href="/user/username" style="color: #e1637f">UserName</a>
-//   </div>
-//   <div class="chat-history--badges-wrapper">
-//     <img class="chat-history--user-badge" src="/i/badges/moderator_48.png" alt="Moderator" title="Moderator"></img>
-//     <a href="/account/publisher-packages"><img class="chat-history--user-badge" src="/i/badges/premium_48.png" alt="Rumble Premium User" title="Rumble Premium User"></a>
-//     <img class="chat-history--user-badge" src="/i/badges/locals_48.png" alt="Sub" title="Sub">
-//     <img class="chat-history--user-badge" src="/i/badges/whale_yellow_48.png" alt="Supporter+" title="Supporter+">
-//     <img class="chat-history--user-badge" src="/i/badges/admin_48.png" alt="Admin" title="Admin">
-//   </div>
-//   <div class="chat-history--message">USER CHAT MESSAGE</div>
-// </div>
-// </li>
-
-// <li class="chat-history--row chat-history--rant" data-message-user-id="x" data-message-id="x">
-// <div class="chat-history--rant" data-level="2">
-//   <div class="chat-history--rant-head">
-//     <div class="chat--profile-pic" style="margin-right: 1rem; background-image: url(&quot;https://sp.rmbl.ws/xxx&quot;);" data-large=""></div>
-//       <div style="display: flex; flex-wrap: wrap; align-items: flex-end">
-//         <a class="chat-history--rant-username" target="_blank" href="/user/xxx">xxx</a>
-//         <div class="chat-history--badges-wrapper"><img class="chat-history--user-badge" src="/i/badges/whale_yellow_48.png" alt="Supporter+" title="Supporter+"></div>
-//         <div class="chat-history--rant-price" style="width: 100%;">$2</div>
-//       </div>
-//     </div>
-//     <div class="chat-history--rant-text">xxx</div>
-//   </div>
-// </div>
-// </li>
-
-
-// <li class="chat-history--row chat-history--rant" data-message-user-id="88707682" data-message-id="1182290124941408978"><div class="chat-history--rant" data-level="2">
-// <div class="chat-history--rant-head">
-// <div class="chat--profile-pic" style="margin-right: 1rem; background-image: url(&quot;https://sp.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg&quot;);" data-large=""></div>
-// <div style="display: flex; flex-wrap: wrap; align-items: flex-end">
-// <a class="chat-history--rant-username" target="_blank" href="/user/madattheinternet">madattheinternet</a>
-// <div class="chat-history--badges-wrapper"><img class="chat-history--user-badge" src="/i/badges/admin_48.png" alt="Admin" title="Admin"><a href="/account/publisher-packages"><img class="chat-history--user-badge" src="/i/badges/premium_48.png" alt="Rumble Premium User" title="Rumble Premium User"></a><img class="chat-history--user-badge" src="/i/badges/whale_gray_48.png" alt="Supporter" title="Supporter"></div>
-// <div class="chat-history--rant-price" style="width: 100%;">$2</div>
-// </div>
-// </div>
-// <div class="chat-history--rant-text">Testing superchats.</div>
-// </div></li>
+// Viewer update
+// https://wn0.rumble.com/service.php?api=7&name=video.watching-now&included_js_libs=main%2Cweb_services%2Cevents%2Cerror%2Cfacebook_events%2Cdarkmode%2Crandom%2Clocal_storage%2Ccontext-menus%2Cnotify%2Cprovider%2Cui_header%2Cmain-menu-item-hover%2Csearch-bar%2Chtmx.org%2Cuser_notifications%2Cui&included_css_libs=global
+//
+// Payload
+// video_id: 243902472
+// viewer_id: b-Ghl6CWGkE

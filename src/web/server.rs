@@ -1,7 +1,8 @@
 use actix::{Actor, Context, Handler, MessageResult, Recipient};
 use std::collections::HashMap;
+use uuid::Uuid;
 
-use super::message::{self, DashboardData};
+use super::message;
 use crate::exchange::ExchangeRates;
 use crate::message::Message as ChatMessage;
 
@@ -13,8 +14,9 @@ pub struct Connection {
 /// Define HTTP actor
 pub struct ChatServer {
     pub clients: HashMap<usize, Connection>,
+    pub chat_messages: HashMap<Uuid, ChatMessage>,
+    pub paid_messages: Vec<Uuid>,
     pub exchange_rates: ExchangeRates,
-    pub premium_chats: Vec<ChatMessage>,
 }
 
 impl ChatServer {
@@ -22,9 +24,10 @@ impl ChatServer {
         log::info!("Chat actor starting up.");
 
         Self {
-            clients: HashMap::new(),
+            clients: HashMap::with_capacity(100),
+            chat_messages: HashMap::with_capacity(100),
+            paid_messages: Vec::with_capacity(100),
             exchange_rates,
-            premium_chats: Vec::new(),
         }
     }
 }
@@ -60,16 +63,6 @@ impl Handler<message::Connect> for ChatServer {
     }
 }
 
-/// Handler for Disconnect message.
-impl Handler<message::Disconnect> for ChatServer {
-    type Result = ();
-
-    fn handle(&mut self, msg: message::Disconnect, _: &mut Context<Self>) {
-        // Remove Client from HashMap.
-        self.clients.remove(&msg.id);
-    }
-}
-
 /// Handler for a new Chat Message from the browser.
 impl Handler<message::Content> for ChatServer {
     type Result = ();
@@ -82,6 +75,7 @@ impl Handler<message::Content> for ChatServer {
             .get_usd(&msg.chat_message.currency, &msg.chat_message.amount);
 
         let mut chat_msg = msg.chat_message;
+        let id = chat_msg.id.to_owned();
         chat_msg.amount = usd;
         chat_msg.currency = "USD".to_string();
 
@@ -90,24 +84,68 @@ impl Handler<message::Content> for ChatServer {
             conn.recipient.do_send(message::Reply(chat_msg.to_json()));
         }
 
+        if self.chat_messages.len() >= self.chat_messages.capacity() - 1 {
+            self.chat_messages.reserve(100);
+        }
+        self.chat_messages.insert(id.to_owned(), chat_msg);
+
         // Backup premium chats to a vector.
         // Performed at the end to avoid having to copy.
-        if chat_msg.amount > 0.0 {
-            self.premium_chats.push(chat_msg);
+        if usd > 0.0 {
+            if self.paid_messages.len() >= self.paid_messages.capacity() - 1 {
+                self.paid_messages.reserve(100);
+            }
+            self.paid_messages.push(id);
         }
     }
 }
 
-impl Handler<message::GetDashboardData> for ChatServer {
-    type Result = MessageResult<message::GetDashboardData>;
+/// Handler for Disconnect message.
+impl Handler<message::Disconnect> for ChatServer {
+    type Result = ();
 
-    fn handle(
-        &mut self,
-        _msg: message::GetDashboardData,
-        _ctx: &mut Context<Self>,
-    ) -> Self::Result {
-        MessageResult(DashboardData {
-            super_chats: self.premium_chats.clone(),
-        })
+    fn handle(&mut self, msg: message::Disconnect, _: &mut Context<Self>) {
+        // Remove Client from HashMap.
+        self.clients.remove(&msg.id);
+    }
+}
+
+/// Handler for recent chat messages.
+impl<'a> Handler<message::RecentMessages> for ChatServer {
+    type Result = MessageResult<message::RecentMessages>;
+
+    fn handle(&mut self, _: message::RecentMessages, _: &mut Context<Self>) -> Self::Result {
+        const MAX_MESSAGES: usize = 100;
+
+        let mut last_messages: Vec<ChatMessage> = if self.chat_messages.len() >= MAX_MESSAGES {
+            self.chat_messages
+                .keys()
+                .cloned()
+                .skip(self.chat_messages.len() - MAX_MESSAGES)
+                .filter_map(|id| self.chat_messages.get(&id).cloned())
+                .collect()
+        } else {
+            self.chat_messages.values().cloned().collect()
+        };
+        last_messages.sort_by_key(|msg| msg.received_at);
+
+        log::debug!("Sending {} recent messages.", last_messages.len());
+        MessageResult(last_messages)
+    }
+}
+
+/// Handler for all stored Superchats.
+impl<'a> Handler<message::PaidMessages> for ChatServer {
+    type Result = MessageResult<message::PaidMessages>;
+
+    fn handle(&mut self, _: message::PaidMessages, _: &mut Context<Self>) -> Self::Result {
+        let mut super_chats: Vec<ChatMessage> = self
+            .paid_messages
+            .iter()
+            .filter_map(|id| self.chat_messages.get(id).cloned())
+            .collect();
+        super_chats.sort_by_key(|msg| msg.received_at);
+        log::debug!("Sending {} superchats.", super_chats.len());
+        MessageResult(super_chats)
     }
 }

@@ -71,6 +71,7 @@ main {
     vertical-align: top;
     font-weight: bold;
     margin-top: -4px;
+    line-height: 1.2em;
 
     white-space: nowrap;
     overflow: hidden;
@@ -164,6 +165,10 @@ main {
     box-shadow: 2px 0px var(--vk--brand-shadow, rgb(0, 119, 255, 0.66));
 }
 
+.msg--p-X .msg-user::before {
+    content: '𝕏 @';
+}
+
 .msg--t {
     --message-bg-color: #1565C0;
     --message-head-color: #1565C0;
@@ -250,6 +255,7 @@ main {
     overflow: hidden;
     text-overflow: ellipsis;
     margin: -2px 0;
+    line-height: 1.2em;
 }
 
 .msg-text:empty {
@@ -267,8 +273,12 @@ main {
  * To deal with junk that appears inside chat messages.
  */
 .msg-text img {
-    max-height: 1em;
-    vertical-align: top;
+    max-height: 2em;
+    max-width: 2em;
+    height: auto;
+    width: auto;
+    vertical-align: middle;
+    margin-top: 0.1em;
 }
 
 .msg-text a {

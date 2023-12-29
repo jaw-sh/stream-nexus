@@ -6,9 +6,10 @@
 // @author Joshua Moon <josh@josh.rs>
 // @homepageURL https://github.com/jaw-sh/stream-nexus
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
-// @include https://odysee.com/*
-// @include https://odysee.com/$/popout/*
+// @match https://odysee.com/*
+// @match https://odysee.com/$/popout/*
 // @connect *
+// @grant unsafeWindow
 // @grant GM_getValue
 // @grant GM_setValue
 // @grant GM_deleteValue
@@ -25,191 +26,227 @@
 // @run-at document-start
 // ==/UserScript==
 
-(function () {
+(async function () {
     'use strict';
+    const UUID = await import('https://jspm.dev/uuid');
+    const NAMESPACE = "d80f03bf-d30a-48e9-9e9f-81616366eefd";
+    const PLATFORM = "Odysee";
 
     //
-    // Socket Logic
+    // WebSocket Monkeypatch
     //
-    let CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
-    const reconnect = () => {
-        // check if socket is connected
-        if (CHAT_SOCKET.readyState === WebSocket.OPEN || CHAT_SOCKET.readyState === WebSocket.CONNECTING) {
-            return true;
-        }
-        else {
-            // attempt to connect if disconnected
-            CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
-        }
-    };
-
-    // Connection opened
-    CHAT_SOCKET.addEventListener("open", (event) => {
-        console.log("[SNEED] Socket connection established.");
-        SEND_MESSAGES(MESSAGE_QUEUE);
-        MESSAGE_QUEUE = [];
-    });
-
-    CHAT_SOCKET.addEventListener("close", (event) => {
-        console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
-        setTimeout(function () { reconnect(); }, 3000);
-    });
-
-    CHAT_SOCKET.addEventListener("error", (event) => {
-        console.log("[SNEED] Socket has errored. Closing.", event.reason);
-        alert("The SNEED chat socket could not connect. Ensure the web server is running and that Brave shields are off.");
-        socket.close();
-    });
-
-    //
-    // Chat Messages
-    //
-    let MESSAGE_QUEUE = [];
-
-    const CREATE_MESSAGE = () => {
-        return {
-            id: crypto.randomUUID(),
-            platform: "IDK",
-            username: "DUMMY_USER",
-            message: "",
-            sent_at: Date.now(), // System timestamp for display ordering.
-            received_at: Date.now(), // Local timestamp for management.
-            avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
-            amount: 0,
-            currency: "ZWL",
-            is_verified: false,
-            is_sub: false,
-            is_mod: false,
-            is_owner: false,
-            is_staff: false,
-        };
-    };
-
-    const BIND_MUTATION_OBSERVER = () => {
-        const targetNode = GET_CHAT_CONTAINER();
-
-        if (targetNode === null) {
-            return false;
-        }
-
-        if (document.querySelector(".sneed-chat-container") !== null) {
-            console.log("[SNEED] Chat container already bound, aborting.");
-            return false;
-        }
-
-        targetNode.classList.add("sneed-chat-container");
-
-        const observer = new MutationObserver(MUTATION_OBSERVE);
-        observer.observe(targetNode, {
-            childList: true,
-            attributes: false,
-            subtree: false
-        });
-
-        GET_EXISTING_MESSAGES();
-        return true;
-    };
-
-    const MUTATION_OBSERVE = (mutationList, observer) => {
-        for (const mutation of mutationList) {
-            if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-                const messages = HANDLE_MESSAGES(mutation.addedNodes);
-                if (messages.length > 0) {
-                    SEND_MESSAGES(messages);
-                }
+    if (unsafeWindow.WebSocket.sneed_patched === undefined) {
+        console.log("[SNEED] Monkeypatching WebSocket");
+        const { WebSocket: originalWebSocket } = unsafeWindow;
+        unsafeWindow.WebSocket = function (url) {
+            console.log(url);
+            const socket = new originalWebSocket(url);
+            if (socket.sneed_patched === undefined) {
+                socket.sneed_patched = true;
+                socket.addEventListener("message", function (msg) {
+                    console.log(msg);
+                    if (socket.is_sneed_socket !== true) {
+                        //let messages = HANDLE_MESSAGES(JSON.parse(msg.data));
+                        //if (messages.length > 0) {
+                        //    SEND_MESSAGES(messages);
+                        //}
+                    }
+                }, false);
             }
-        }
-    };
+            return socket;
+        };
+        unsafeWindow.WebSocket.sneed_patched = true;
+    }
+})();
+//
+// Fetch Monkeypatch
+//
+if (unsafeWindow.fetch.sneed_patch !== true) {
+    console.log("[SNEED] Monkeypatching fetch()")
+    const { fetch: originalFetch } = unsafeWindow;
 
-    const SEND_MESSAGES = (messages) => {
-        // check if socket is open
-        if (CHAT_SOCKET.readyState === WebSocket.OPEN) {
-            CHAT_SOCKET.send(JSON.stringify(messages));
-        }
-        else {
-            // add to queue if not
-            messages.forEach((message) => {
-                MESSAGE_QUEUE.push(messages);
+    unsafeWindow.fetch = async (...args) => {
+        let [resource, config] = args;
+        const response = originalFetch(resource, config);
+        if (resource.includes("v2?m=comment.List") || resource.includes("v2?m=comment.SuperChatList")) {
+            response.then(async (data) => {
+                const json = await data.clone().json();
+                if (json.result !== undefined && json.result.items !== undefined) {
+                    const messages = HANDLE_MESSAGES(json.result.items);
+                    if (messages.length > 0) {
+                        SEND_MESSAGES(messages);
+                    }
+                }
+                return data;
             });
         }
+        return response;
     };
+    unsafeWindow.fetch.sneed_patch = true;
+}
 
-    setInterval(function () {
-        if (document.querySelector(".sneed-chat-container") === null) {
-            console.log("[SNEED] Binding chat container.")
-            BIND_MUTATION_OBSERVER();
+
+//
+// Socket Logic
+//
+let CHAT_SOCKET = new WebSocket("ws://127.0.0.2:1350/chat.ws");
+CHAT_SOCKET.is_sneed_socket = true;
+
+const reconnect = () => {
+    // check if socket is connected
+    if (CHAT_SOCKET.readyState === WebSocket.OPEN || CHAT_SOCKET.readyState === WebSocket.CONNECTING) {
+        return true;
+    }
+    else {
+        // attempt to connect if disconnected
+        CHAT_SOCKET = new WebSocket("ws://127.0.0.2:1350/chat.ws");
+        CHAT_SOCKET.is_sneed_socket = true;
+    }
+};
+
+// Connection opened
+CHAT_SOCKET.addEventListener("open", (event) => {
+    console.log("[SNEED] Socket connection established.");
+    SEND_MESSAGES(MESSAGE_QUEUE);
+    MESSAGE_QUEUE = [];
+});
+
+CHAT_SOCKET.addEventListener("close", (event) => {
+    console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
+    setTimeout(function () { reconnect(); }, 3000);
+});
+
+CHAT_SOCKET.addEventListener("error", (event) => {
+    console.log("[SNEED] Socket has errored. Closing.", event.reason);
+    alert("The SNEED chat socket could not connect. Ensure the web server is running and that Brave shields are off.");
+    socket.close();
+});
+
+//
+// Chat Messages
+//
+let MESSAGE_QUEUE = [];
+
+const CREATE_MESSAGE = () => {
+    return {
+        id: crypto.randomUUID(),
+        platform: PLATFORM,
+        username: "DUMMY_USER",
+        message: "",
+        sent_at: Date.now(), // System timestamp for display ordering.
+        received_at: Date.now(), // Local timestamp for management.
+        avatar: "https://thumbnails.odycdn.com/optimize/s:160:160/quality:85/plain/https://spee.ch/spaceman-png:2.png",
+        amount: 0,
+        currency: "ZWL",
+        is_verified: false,
+        is_sub: false,
+        is_mod: false,
+        is_owner: false,
+        is_staff: false,
+    };
+};
+
+const HANDLE_MESSAGES = (items) => {
+    const messages = [];
+
+    items.forEach((item) => {
+        const message = CREATE_MESSAGE();
+        message.id = UUID.v5(item.comment_id, NAMESPACE);
+        message.username = item.channel_name;
+        message.message = item.comment;
+        message.sent_at = item.timestamp;
+
+        if (item.is_fiat === true) {
+            message.amount = item.support_amount;
+            message.currency = "USD";
         }
-    }, 1000);
 
+        console.log(item, message);
+        messages.push(message);
+    });
 
-    //
-    // Specific Implementations
-    //
+    return messages;
+};
 
-    const GET_CHAT_CONTAINER = () => {
-        return document.querySelector(".livestream__comments");
-    };
-
-    const GET_EXISTING_MESSAGES = () => {
-        console.log("[SNEED] Checking for existing messages.");
-        const nodes = document.querySelectorAll(".sneed-chat-container .livestream__comment");
-        if (nodes.length > 0) {
-            const list = Array.prototype.slice.call(nodes);
-            const messages = HANDLE_MESSAGES(list.reverse());
-            if (messages.length > 0) {
-                SEND_MESSAGES(messages);
-            }
-        }
-    };
-
-    const HANDLE_MESSAGES = (nodes) => {
-        const messages = [];
-
-        nodes.forEach((node) => {
-            // Note about Odysee:
-            // The DOM changes in realtime because for some reason the initial HTML gets modified a lot by JS.
-            // Odysee's UI in general is very sluggish so a lot changes.
-            // In particular, avatars appear to be GIF images that are frozen after a short time.
-            const message = CREATE_MESSAGE();
-            message.platform = "Odysee";
-            //message.sent_at = Date.parse(node.querySelector(".date_time").getAttribute("title")) * 10;
-
-            // in strange conditions this can be null, I do not know why.
-            const avatar = node.querySelector(".channel-thumbnail__custom, .freezeframe-img")?.src;
-            if (typeof avatar === "string" && avatar.length > 0) {
-                message.avatar = avatar;
-            }
-            message.username = node.querySelector(".comment__author").innerText;
-            const messageEl = node.querySelector(".livestream-comment__text .markdown-preview");
-            message.message = messageEl ? messageEl.innerText : "";
-
-            const creditEl = node.querySelector(".credit-amount");
-            if (creditEl !== null) {
-                const amount = creditEl.innerText;
-                // Ignore LBRY for now.
-                if (amount.includes("$")) {
-                    message.is_premium = true;
-                    message.currency = "USD";
-                    message.amount = parseFloat(amount.replace("$", ""));
-                    console.log("Superchat!", message);
-                }
-            }
-
-            if (node.querySelector(".icon--BadgeMod")) {
-                message.is_mod = true;
-            }
-            if (node.querySelector(".icon--BadgeStreamer")) {
-                message.is_owner = true;
-            }
-
-            console.log(message);
-            messages.push(message);
+const SEND_MESSAGES = (messages) => {
+    // check if socket is open
+    if (CHAT_SOCKET.readyState === WebSocket.OPEN) {
+        CHAT_SOCKET.send(JSON.stringify({
+            platform: PLATFORM,
+            messages: messages
+        }));
+    }
+    else {
+        // add to queue if not
+        messages.forEach((message) => {
+            MESSAGE_QUEUE.push(messages);
         });
+    }
+};
+}) ();
 
-        return messages;
-    };
-})();
+// wss://sockety.odysee.tv/ws/commentron?id=d826937ad9bf3b7991eada5034c4612389583bc1&category=@RT:fd&sub_category=viewer
+// {"type":"viewers","data":{"connected":150}}
+
+// https://comments.odysee.tv/api/v2?m=comment.List
+//{
+//    "jsonrpc": "2.0",
+//    "result": {
+//        "page": 1,
+//        "page_size": 75,
+//        "total_pages": 1542,
+//        "total_items": 115627,
+//        "total_filtered_items": 115627,
+//        "items": [
+//            {
+//                "comment": "I will mobilize my people to protect Serbia, stay united against the saxon tricks.",
+//                "comment_id": "f162fd3621908ca512a84e4690d4325806b92d921001fb69653c9a36aca6c491",
+//                "claim_id": "d826937ad9bf3b7991eada5034c4612389583bc1",
+//                "timestamp": 1703449568,
+//                "signature": "bcbf2e21adff5c10814f9e825047840865c2063ab4f487c1cdbbda63404865110c0ae9ff35bf09acf395003068b6304ad7ff86c53033dd2dc8bb46c4ea4217b9",
+//                "signing_ts": "1703449568",
+//                "channel_id": "e074a4dcf3ad7a25be35532ebc2b8986ed1e1cca",
+//                "channel_name": "@Rkhnswt",
+//                "channel_url": "lbry://@Rkhnswt#e074a4dcf3ad7a25be35532ebc2b8986ed1e1cca",
+//                "currency": "",
+//                "support_amount": 0,
+//                "is_hidden": false,
+//                "is_pinned": false,
+//                "is_fiat": false,
+//                "is_protected": false
+//            },
+
+// https://comments.odysee.tv/api/v2?m=comment.SuperChatList
+//{
+//    "jsonrpc": "2.0",
+//    "result": {
+//        "page": 1,
+//        "page_size": 100,
+//        "total_pages": 1,
+//        "total_items": 21,
+//        "total_amount": 287.5866,
+//        "items": [
+//            {
+//                "comment": ":illuminati_1: :illuminati_1: :alien: :blind: :flying_saucer: ",
+//                "comment_id": "a6e1ad9b72fdd542872465f2b3af1377a9acbb7a27b0fa0fbe79ceccad3b220f",
+//                "claim_id": "d826937ad9bf3b7991eada5034c4612389583bc1",
+//                "timestamp": 1689526618,
+//                "signature": "b2eb8a5dbe0f56a7fb0b7f4fa6d882f46b875773b658bc9dc52de9d74003e6f9183f7a9c9fb3d1f2170ee5036b5973a899b0f9ee20d1f8f279b7d46140096dd8",
+//                "signing_ts": "1689526618",
+//                "channel_id": "8c96eea49623f07ecec581e12c89645eef19fd30",
+//                "channel_name": "@Amazing",
+//                "channel_url": "lbry://@Amazing#8c96eea49623f07ecec581e12c89645eef19fd30",
+//                "currency": "",
+//                "support_amount": 100,
+//                "is_hidden": false,
+//                "is_pinned": false,
+//                "is_fiat": false,
+//                "is_protected": false
+//            },
+
+// wss://sockety.odysee.tv/ws/commentron?id=d826937ad9bf3b7991eada5034c4612389583bc1&category=@RT:fd&sub_category=viewer
+// {"type":"delta","data":{"comment":{"channel_id":"9cd7e06ab756fbdbed12954b84f4353560b59dea","channel_name":"@madd","channel_url":"lbry://@madd#9cd7e06ab756fbdbed12954b84f4353560b59dea","claim_id":"d826937ad9bf3b7991eada5034c4612389583bc1","comment":"lol","comment_id":"d771a55de0787f2fec52d77f7add213a429ea138b3f0c22220a4fbc8b3089799","currency":"","is_fiat":false,"is_hidden":false,"is_pinned":false,"is_protected":false,"signature":"c8fcaad31b42d764037336970d180f78b85aba965cca88fec71da1854cbc107e7e0bc104e7ce5431515d17d99fdd22cf7924567840f32f6a891651f66090ec29","signing_ts":"1703726326","support_amount":0,"timestamp":1703726327}}}
+
 // <li class="livestream__comment">
 //    <div class="livestream-comment__body">
 //       <div class="channel-thumbnail channel-thumbnail__default--3 channel-thumbnail--xsmall"><img class="channel-thumbnail__custom" loading="lazy" src="https://thumbnails.odycdn.com/optimize/s:160:160/quality:85/plain/https://spee.ch/spaceman-png:2.png" style="visibility: visible;"></div>
@@ -239,7 +276,7 @@
 //    </div>
 // </li>
 //
-// 
+//
 // $USD Superchat
 //
 // <li class="livestream__comment livestream__comment--hyperchat">

@@ -21,7 +21,6 @@ pub struct Message {
     pub username: String,
     pub avatar: String, // URL
     // Superchat
-    pub is_premium: bool,
     pub amount: f64,
     pub currency: String,
     // Display
@@ -30,6 +29,14 @@ pub struct Message {
     pub is_mod: bool,
     pub is_owner: bool,
     pub is_staff: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, ActixMessage, Clone)]
+#[rtype(result = "()")]
+pub struct LivestreamUpdate {
+    pub platform: String,
+    pub messages: Option<Vec<Message>>,
+    pub viewers: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -55,7 +62,6 @@ impl Default for Message {
             username: "NO_USERNAME".to_string(),
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
                 .to_string(),
-            is_premium: false,
             amount: 0.0,
             currency: "ZWL".to_string(),
             is_verified: false,
@@ -93,12 +99,16 @@ impl Message {
         format!("msg--b-{}", badges.join(" msg--b-"))
     }
 
+    pub fn is_premium(&self) -> bool {
+        self.amount > 0.0
+    }
+
     pub fn get_letter(&self) -> String {
         self.username.chars().next().unwrap().to_string()
     }
 
     pub fn get_paid_readable_amount(&self) -> String {
-        if self.is_premium {
+        if self.is_premium() {
             format!("{} {}", format!("{:.2}", self.amount), self.currency)
         } else {
             String::new()
@@ -106,7 +116,7 @@ impl Message {
     }
 
     pub fn get_paid_string(&self) -> String {
-        if self.is_premium {
+        if self.is_premium() {
             format!(
                 "msg--t msg--ta-{} msg--tc-{}",
                 self.get_paid_tier(),
@@ -142,7 +152,7 @@ impl Message {
     }
 
     pub fn to_console_msg(&self) -> String {
-        if self.is_premium {
+        if self.is_premium() {
             format!(
                 "[{}] [${} {}] ({}): {}",
                 self.platform, self.currency, self.amount, self.username, self.message

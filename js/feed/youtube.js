@@ -6,11 +6,9 @@
 // @author Joshua Moon <josh@josh.rs>
 // @homepageURL https://github.com/jaw-sh/stream-nexus
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
-// @include https://www.youtube.com/watch?v=*
-// @include https://www.youtube.com/live/*
-// @include https://www.youtube.com/live_chat?v=*
-// @include https://www.youtube.com/live_chat?is_popout=1&v=*
+// @match https://www.youtube.com/live_chat?*
 // @connect *
+// @grant unsafeWindow
 // @grant GM_getValue
 // @grant GM_setValue
 // @grant GM_deleteValue
@@ -27,13 +25,59 @@
 // @run-at document-start
 // ==/UserScript==
 
-(function () {
+(async function () {
     'use strict';
+
+    console.log("[SNEED] Attaching to YouTube.");
+    const UUID = await import('https://jspm.dev/uuid');
+    const NAMESPACE = "fd60ac36-d6b5-49dc-aee6-b0d87d130582";
+    const PLATFORM = "YouTube";
+
+    //
+    // Fetch Monkeypatch
+    //
+    if (unsafeWindow.fetch.sneed_patch !== true) {
+        console.log("[SNEED] Monkeypatching fetch()")
+        const { fetch: originalFetch } = unsafeWindow;
+
+        unsafeWindow.fetch = async (...args) => {
+            let [resource, config] = args;
+            const response = originalFetch(resource, config);
+            // fetch() is wrapped in trycatch throughout YouTube's code.
+            // If this fails, it silently fails, and you will disconnect from chat.
+            // Ensure that any time you touch this response, you return the original response.
+            response.then(async (data) => {
+                const json = await data.clone().json();
+                if (
+                    json.continuationContents !== undefined &&
+                    json.continuationContents.liveChatContinuation !== undefined &&
+                    json.continuationContents.liveChatContinuation.actions !== undefined
+                ) {
+                    json.continuationContents.liveChatContinuation.actions.forEach((action) => {
+                        if (action.addChatItemAction !== undefined) {
+                            const message = HANDLE_MESSAGES([action.addChatItemAction]);
+                            if (message.length > 0) {
+                                SEND_MESSAGES(message);
+                            }
+                        }
+                        else {
+                            console.log("[SNEED::YouTube] Unknown action.", action);
+                        }
+                    });
+                }
+
+                return data;
+            });
+            return response;
+        };
+        unsafeWindow.fetch.sneed_patch = true;
+    }
+
 
     //
     // Socket Logic
     //
-    let CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
+    let CHAT_SOCKET = new WebSocket("ws://127.0.0.2:1350/chat.ws");
     const reconnect = () => {
         // check if socket is connected
         if (CHAT_SOCKET.readyState === WebSocket.OPEN || CHAT_SOCKET.readyState === WebSocket.CONNECTING) {
@@ -41,24 +85,24 @@
         }
         else {
             // attempt to connect if disconnected
-            CHAT_SOCKET = new WebSocket("ws://localhost:1350/chat.ws");
+            CHAT_SOCKET = new WebSocket("ws://127.0.0.2:1350/chat.ws");
         }
     };
 
     // Connection opened
     CHAT_SOCKET.addEventListener("open", (event) => {
-        console.log("[SNEED] Socket connection established.");
+        console.log("[SNEED::YouTube] Socket connection established.");
         SEND_MESSAGES(MESSAGE_QUEUE);
         MESSAGE_QUEUE = [];
     });
 
     CHAT_SOCKET.addEventListener("close", (event) => {
-        console.log("[SNEED] Socket has closed. Attempting reconnect.", event);
+        console.log("[SNEED::YouTube] Socket has closed. Attempting reconnect.", event);
         setTimeout(function () { reconnect(); }, 3000);
     });
 
     CHAT_SOCKET.addEventListener("error", (event) => {
-        console.log("[SNEED] Socket has errored. Closing.", event.reason);
+        console.log("[SNEED::YouTube] Socket has errored. Closing.", event.reason);
         alert("The SNEED chat socket could not connect. Ensure the web server is running and that Brave shields are off.");
         socket.close();
     });
@@ -66,18 +110,17 @@
     //
     // Chat Messages
     //
-    let MESSAGE_QUEUE = [];
+    var MESSAGE_QUEUE = [];
 
     const CREATE_MESSAGE = () => {
         return {
             id: crypto.randomUUID(),
-            platform: "IDK",
+            platform: PLATFORM,
             username: "DUMMY_USER",
             message: "",
             sent_at: Date.now(), // System timestamp for display ordering.
             received_at: Date.now(), // Local timestamp for management.
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            is_premium: false,
             amount: 0,
             currency: "ZWL",
             is_verified: false,
@@ -88,47 +131,42 @@
         };
     };
 
-    const BIND_MUTATION_OBSERVER = () => {
-        const targetNode = GET_CHAT_CONTAINER();
+    const HANDLE_MESSAGES = (actions) => {
+        const messages = [];
 
-        if (targetNode === null) {
-            console.log("[SNEED] No chat container found.")
-            return false;
-        }
+        actions.forEach((action) => {
+            const message = CREATE_MESSAGE();
+            message.id = UUID.v5(action.item.liveChatTextMessageRenderer.id, NAMESPACE);
+            message.username = action.item.liveChatTextMessageRenderer.authorName.simpleText;
+            message.avatar = action.item.liveChatTextMessageRenderer.authorPhoto.thumbnails.at(-1).url;
+            message.sent_at = parseInt(action.item.liveChatTextMessageRenderer.timestampUsec / 1000);
 
-        if (document.querySelector(".sneed-chat-container") !== null) {
-            console.log("[SNEED] Chat container already bound, aborting.");
-            return false;
-        }
+            action.item.liveChatTextMessageRenderer.message.runs.forEach((run) => {
+                if (run.text !== undefined) {
+                    message.message += run.text;
+                }
+                else if (run.emoji !== undefined) {
+                    message.message += `<img class="emoji" src="${run.emoji.image.thumbnails.at(-1).url}" alt="${run.emoji.emojiId}" />`;
+                }
+                else {
+                    console.log("[SNEED::YouTube] Unknown run.", run);
+                }
+            });
 
-        targetNode.classList.add("sneed-chat-container");
-
-        const observer = new MutationObserver(MUTATION_OBSERVE);
-        observer.observe(targetNode, {
-            childList: true,
-            attributes: false,
-            subtree: false
+            console.log(message);
+            messages.push(message);
         });
 
-        GET_EXISTING_MESSAGES();
-        return true;
-    };
-
-    const MUTATION_OBSERVE = (mutationList, observer) => {
-        for (const mutation of mutationList) {
-            if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-                const messages = HANDLE_MESSAGES(mutation.addedNodes);
-                if (messages.length > 0) {
-                    SEND_MESSAGES(messages);
-                }
-            }
-        }
+        return messages;
     };
 
     const SEND_MESSAGES = (messages) => {
         // check if socket is open
         if (CHAT_SOCKET.readyState === WebSocket.OPEN) {
-            CHAT_SOCKET.send(JSON.stringify(messages));
+            CHAT_SOCKET.send(JSON.stringify({
+                platform: PLATFORM,
+                messages: messages,
+            }));
         }
         else {
             // add to queue if not
@@ -138,166 +176,179 @@
         }
     };
 
-    setInterval(function () {
-        if (document.querySelector(".sneed-chat-container") === null) {
-            // YT-Specific: Enforce live chat.
-            if (YOUTUBE_LIVE_CHAT() === true) {
-                const chatContainer = GET_CHAT_CONTAINER();
-                if (chatContainer !== null && !chatContainer.classList.contains("sneed-chat-container")) {
-                    console.log("[SNEED] Binding chat container.");
-                    BIND_MUTATION_OBSERVER();
-                }
-            }
-        }
-    }, 1000);
-
-
-    //
-    // Specific Implementations
-    //
-
-    // Attempts to switch to Live Chat from Top Chat.
-    // Returns TRUE if we can proceed to checking the MutationObserver is wokring.
-    // Returns FALSE if the chat isn't found.
-    const YOUTUBE_LIVE_CHAT = () => {
-        const chatContainer = GET_CHAT_CONTAINER();
-
-        if (chatContainer === null) {
-            console.log("[SNEED] Awaiting live chat container...");
-            return false;
-        }
-
-        const chatApp = chatContainer.closest("yt-live-chat-app");
-        const dropdownEl = chatApp.querySelector("#label.yt-dropdown-menu");
-        const liveEl = chatApp.querySelectorAll("#item-with-badge.yt-dropdown-menu")[1];
-
-        if (dropdownEl === null || liveEl === undefined) {
-            console.log("[SNEED] No live chat dropdown menu.");
-            console.log(dropdownEl, liveEl);
-            return false;
-        }
-
-        if (dropdownEl.textContent.trim() == liveEl.textContent.trim()) {
-            // We're already live chat.
-            return true;
-        }
-
-        liveEl.closest("a").click();
-        console.log("[SNEED] Live chat activated. Eat it, Neal!");
-        return true;
-    }
-
-    const GET_CHAT_CONTAINER = () => {
-        const chatFrame = document.querySelector("#chatframe.ytd-live-chat-frame");
-        const targetDoc = chatFrame === null ? document : chatFrame.contentWindow.document;
-        return targetDoc.querySelector("#items.yt-live-chat-item-list-renderer");
-    };
-
-    const GET_EXISTING_MESSAGES = () => {
-        console.log("[SNEED] Checking for existing messages.");
-        const nodes = GET_CHAT_CONTAINER().childNodes;
-
-        if (nodes.length > 0) {
-            const messages = HANDLE_MESSAGES(nodes);
-            if (messages.length > 0) {
-                SEND_MESSAGES(messages);
-            }
-        }
-    }
-
-    const HANDLE_MESSAGES = (nodes) => {
-        const messages = [];
-
-        nodes.forEach((node) => {
-            const tag = node.tagName.toLowerCase();
-            if (tag != 'yt-live-chat-text-message-renderer' && tag != 'yt-live-chat-paid-message-renderer') {
-                return;
-            }
-
-            let message = CREATE_MESSAGE();
-            message.platform = "YouTube";
-            message.received_at = Date.now(); // Rumble provides no information.
-
-            message.avatar = node.querySelector("yt-img-shadow img").src;
-            message.username = node.querySelector("[id='author-name']").innerText;
-            message.message = node.querySelector("[id='message']").innerHTML;
-
-            if (tag === "yt-live-chat-paid-message-renderer") {
-                const dono = node.querySelector("#purchase-amount").innerText;
-                message.is_premium = true;
-                const amt = dono.replace(/[^0-9.-]+/g, "");
-                message.amount = Number(amt);
-                // get index of first number or whitespace in dono
-                //const currency = dono.substring(0, dono.indexOf(" ")).trim();
-                const currency = dono.split(/[0-9 ]/)[0].trim();
-                // ## TODO ## YT superchats are MANY currencies.
-                switch (currency) {
-                    case "$": message.currency = "USD"; break;
-                    case "CA$": message.currency = "CAD"; break;
-                    case "C$": message.currency = "NIO"; break; // I think this is Nicaraguan Cordoba and not Canadian Dollar.
-                    case "A$": message.currency = "AUD"; break;
-                    case "NZ$": message.currency = "NZD"; break;
-                    case "NT$": message.currency = "TWD"; break;
-                    case "R$": message.currency = "BRL"; break;
-                    case "MX$": message.currency = "MXN"; break;
-                    case "HK$": message.currency = "HKD"; break;
-                    case "£": message.currency = "GBP"; break;
-                    case "€": message.currency = "EUR"; break;
-                    case "₽": message.currency = "RUB"; break;
-                    case "₹": message.currency = "INR"; break;
-                    case "¥": message.currency = "JPY"; break;
-                    case "₩": message.currency = "KRW"; break;
-                    case "₱": message.currency = "PHP"; break;
-                    case "₫": message.currency = "VND"; break;
-                    default:
-                        // Many YT currencies are actually the currency code.
-                        if (currency.length === 3) {
-                            message.currency = currency;
-                        }
-                        else {
-                            console.log("[SNEED] Unknown currency: " + currency);
-                            message.currency = "ZWD";
-                        }
-                }
-            }
-
-            // The owner and subs copme from a top-level [author-type].
-            const authorType = node.getAttribute("author-type");
-            if (typeof authorType === "string") {
-                if (authorType.includes("owner")) {
-                    message.is_owner = true;
-                }
-                if (authorType.includes("moderator")) {
-                    message.is_mod = true;
-                }
-                if (authorType.includes("member")) {
-                    message.is_sub = true;
-                }
-            }
-
-            // "Verified" is exclusively denominated by a badge, but other types can be found that way too.
-            // Whatever, just check the badges too.
-            node.querySelectorAll("yt-live-chat-author-badge-renderer.yt-live-chat-author-chip").forEach((badge) => {
-                switch (badge.getAttribute("type")) {
-                    case "moderator": message.is_mod = true; break;
-                    case "verified": message.is_verified = true; break;
-                    case "member": message.is_sub = true; break;
-
-                }
-                // I don't think YouTube staff will ever use live chat?
-            });
-
-            if (tag == 'yt-live-chat-paid-message-renderer') {
-                console.log("superchat", node);
-            }
-
-
-            messages.push(message);
-        });
-
-        return messages;
-    };
 })();
+
+// These updates flood continuously during livechat.
+// https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false
+//{
+//    "responseContext": {
+//        "serviceTrackingParams": [
+//            {
+//                "service": "CSI",
+//                "params": [
+//                    {
+//                        "key": "c",
+//                        "value": "WEB"
+//                    },
+//                    {
+//                        "key": "cver",
+//                        "value": "2.20231219.04.00"
+//                    },
+//                    {
+//                        "key": "yt_li",
+//                        "value": "1"
+//                    },
+//                    {
+//                        "key": "GetLiveChat_rid",
+//                        "value": "0x913245056f88e7ca"
+//                    }
+//                ]
+//            },
+//            {
+//                "service": "GFEEDBACK",
+//                "params": [
+//                    {
+//                        "key": "logged_in",
+//                        "value": "1"
+//                    },
+//                    {
+//                        "key": "e",
+//                        "value": "23804281,23885490,23946420,23966208,23983296,23986019,23998056,24004644,24007246,24034168,24036948,24077241,24080738,24108447,24120819,24135310,24140247,24166867,24181174,24187377,24208765,24241378,24255543,24255545,24260378,24288664,24290971,24367580,24367698,24377598,24377909,24382552,24385728,24387949,24390675,24428788,24428941,24428945,24439361,24451319,24453989,24458839,24468724,24485421,24495712,24506515,24515423,24518452,24524098,24525811,24526642,24526770,24526787,24526794,24526801,24526804,24526811,24526827,24528552,24528557,24528577,24528584,24528644,24528647,24528659,24528668,24531225,24531254,24537200,24539025,24542367,24542452,24546059,24546075,24548627,24548629,24549786,24550458,24559327,24559699,24560416,24561210,24561384,24566687,24589493,24589913,24694842,24697069,24698453,24699899,39324569,39325337,39325345,39325405,39325424,39325428,39325489,39325496,39325500,39325515,39325525,39325532,51003636,51004018,51006181,51009781,51009900,51010235,51012165,51012291,51012659,51014091,51014900,51016856,51017346,51019626,51020570,51021953,51025415,51026715,51026824,51027870,51028271,51029412,51030101,51031341,51032410,51033399,51033577,51035288,51035885,51036473,51036511,51037344,51037349,51037540,51037819,51037893,51038399,51038518,51038805,51039200,51039493,51041282,51041331,51041497,51043948,51045885,51045889,51045969,51046754,51047534,51048240,51048279,51049006,51050361,51052759,51053689,51055129,51055136,51055564,51056261,51056270,51057501,51057534,51057746,51057811,51057822,51057848,51057857,51057863,51059545,51059572,51059972,51060895,51061018,51061487,51063125,51063136,51063147,51063154,51063643,51064006,51064281,51064594,51065651,51065706,51068869,51069088,51069269,51069838,51070203,51070732,51072103,51072447,51072748,51073619,51074062,51074183,51074391,51074608,51074662,51074717,51074739,51075839,51076209,51077149,51078193,51079309,51079353,51080182,51080510,51080714,51080903,51081382,51082368,51083014,51083234,51083862,51084277,51084290,51084589,51084695,51086857,51090887"
+//                    }
+//                ]
+//            },
+//            {
+//                "service": "GUIDED_HELP",
+//                "params": [
+//                    {
+//                        "key": "logged_in",
+//                        "value": "1"
+//                    }
+//                ]
+//            },
+//            {
+//                "service": "ECATCHER",
+//                "params": [
+//                    {
+//                        "key": "client.version",
+//                        "value": "2.20231219"
+//                    },
+//                    {
+//                        "key": "client.name",
+//                        "value": "WEB"
+//                    },
+//                    {
+//                        "key": "client.fexp",
+//                        "value": "24506515,51083234,24453989,51078193,24524098,51065651,51064594,24698453,51012291,51045889,51033577,51073619,24531225,24549786,39325337,51057848,51084277,51037540,24468724,51038518,51074662,24390675,51076209,51037893,51048240,24537200,51026824,24528644,39325525,51014900,51050361,24526642,24548629,39325532,51026715,24187377,51057746,39325500,39325428,51063154,51057811,51016856,24528584,24560416,51063147,24528577,51029412,51041331,51059572,51010235,23885490,51041282,51017346,51084695,51070732,51074183,24428945,51074608,39325405,24697069,51012165,24526827,24550458,51068869,24589493,51064281,24559699,51009900,51006181,24377598,51004018,51074062,51014091,51074717,24526804,51081382,51045885,24526811,39324569,51020570,24566687,51047534,51069838,24166867,51063136,51052759,51075839,51037819,24559327,24451319,24542452,24377909,51080903,24515423,51028271,24241378,24548627,51069269,24458839,24135310,24080738,51077149,51036511,51059972,51009781,51072447,51019626,51070203,51061487,24699899,23946420,51057863,51031341,24528557,51043948,24526787,24589913,24385728,24518452,24526794,51059545,51069088,24526801,24255543,51084290,24531254,23804281,24428941,51090887,24561384,51072103,39325489,51086857,24546059,51025415,39325345,39325496,39325424,51041497,51061018,51063125,24077241,24495712,51063643,51079309,51057501,51083862,51012659,24525811,39325515,51055136,51046754,23998056,51060895,24004644,51032410,24007246,24255545,51074391,24367580,24036948,24140247,51079353,51045969,51055129,24387949,24539025,51080510,24120819,51030101,23983296,24428788,51065706,24528668,51003636,51037349,51038399,24260378,51080714,24528647,24290971,23966208,51082368,51056270,51053689,24208765,24108447,51080182,51036473,24542367,51027870,51049006,24181174,51021953,51084589,51048279,51039493,24288664,23986019,51083014,24528659,51064006,51037344,51074739,51057534,51033399,51057857,24694842,24034168,24485421,24382552,51035288,51035885,51056261,51072748,24561210,24528552,51055564,51038805,24526770,24367698,24546075,51039200,24439361,51057822"
+//                    }
+//                ]
+//            }
+//        ],
+//        "mainAppWebResponseContext": {
+//            "datasyncId": "111825020563651229171||",
+//            "loggedOut": false,
+//            "trackingParam": "kV9fmPxhojXCz39TnrslLKPQSQR"
+//        },
+//        "webResponseContextExtensionData": {
+//            "hasDecorated": true
+//        }
+//    },
+//    "continuationContents": {
+//        "liveChatContinuation": {
+//            "continuations": [
+//                {
+//                    "invalidationContinuationData": {
+//                        "invalidationId": {
+//                            "objectSource": 1056,
+//                            "objectId": "Y2hhdH5qZktmUGZ5SlJka341Njc4OTg4",
+//                            "topic": "chat~jfKfPfyJRdk~5678988",
+//                            "subscribeToGcmTopics": true,
+//                            "protoCreationTimestampMs": "1703696414487"
+//                        },
+//                        "timeoutMs": 10000,
+//                        "continuation": "0ofMyAObAhpeQ2lrcUp3b1lWVU5UU2pSbmExWkROazV5ZGtsSk9IVnRlblJtTUU5M0VndHFaa3RtVUdaNVNsSmtheG9UNnFqZHVRRU5DZ3RxWmt0bVVHWjVTbEprYXlBQk1BQSUzRCiuotbbi7CDAzAAQAJKcggBGAAgAEoKCAEQABgAIAAwAFD3tNqZi7CDA1gEeACiAQ8SCwiQsLGsBhDF6_NpGgCqARAQAhoCCAEiAggBKgQIABAAsAEAwAEAyAGSj_bVi7CDA-IBDAiRr7GsBhCZ7uO_A-gBAPABAPgBAIgCAJACAFDGtorci7CDA1iSkcS1_amDA4IBBAgEGAGIAQCaAQIIAKAByuTc3IuwgwOyAQC6AQIICtABhLCxrAY%3D"
+//                    }
+//                }
+//            ],
+//            "actions": [
+//                {
+//                    "addChatItemAction": {
+//                        "item": {
+//                            "liveChatTextMessageRenderer": {
+//                                "message": {
+//                                    "runs": [
+//                                        {
+//                                            "text": "@tsunami "
+//                                        },
+//                                        {
+//                                            "emoji": {
+//                                                "emojiId": "💀",
+//                                                "shortcuts": [
+//                                                    ":skull:"
+//                                                ],
+//                                                "searchTerms": [
+//                                                    "skull"
+//                                                ],
+//                                                "image": {
+//                                                    "thumbnails": [
+//                                                        {
+//                                                            "url": "https://www.youtube.com/s/gaming/emoji/0f0cae22/emoji_u1f480.svg"
+//                                                        }
+//                                                    ],
+//                                                    "accessibility": {
+//                                                        "accessibilityData": {
+//                                                            "label": "💀"
+//                                                        }
+//                                                    }
+//                                                }
+//                                            }
+//                                        }
+//                                    ]
+//                                },
+//                                "authorName": {
+//                                    "simpleText": "Chahd "
+//                                },
+//                                "authorPhoto": {
+//                                    "thumbnails": [
+//                                        {
+//                                            "url": "https://yt4.ggpht.com/dWDyYvMhp6Qah4J0EGJZ_UffjPO99ZWZyNs84nu8Ybj-ig_8pIIipIc88yaG1gfAPaSFWKDG=s32-c-k-c0x00ffffff-no-rj",
+//                                            "width": 32,
+//                                            "height": 32
+//                                        },
+//                                        {
+//                                            "url": "https://yt4.ggpht.com/dWDyYvMhp6Qah4J0EGJZ_UffjPO99ZWZyNs84nu8Ybj-ig_8pIIipIc88yaG1gfAPaSFWKDG=s64-c-k-c0x00ffffff-no-rj",
+//                                            "width": 64,
+//                                            "height": 64
+//                                        }
+//                                    ]
+//                                },
+//                                "contextMenuEndpoint": {
+//                                    "commandMetadata": {
+//                                        "webCommandMetadata": {
+//                                            "ignoreNavigation": true
+//                                        }
+//                                    },
+//                                    "liveChatItemContextMenuEndpoint": {
+//                                        "params": "Q2g0S0hBb2FRMUJtWHpGT2RVeHpTVTFFUm1FMFVERm5RV1JEYjBWSWJGRWFLU29uQ2hoVlExTktOR2RyVmtNMlRuSjJTVWs0ZFcxNmRHWXdUM2NTQzJwbVMyWlFabmxLVW1ScklBRW9CRElhQ2hoVlExbFlWalp3TFY5bVNESk9NVzkzTlUwMFJYQlRVSGM0QWtnQVVBRSUzRA=="
+//                                    }
+//                                },
+//                                "id": "ChwKGkNQZl8xTnVMc0lNREZhNFAxZ0FkQ29FSGxR",
+//                                "timestampUsec": "1703696412283182",
+//                                "authorExternalChannelId": "UCYXV6p-_fH2N1ow5M4EpSPw",
+//                                "contextMenuAccessibility": {
+//                                    "accessibilityData": {
+//                                        "label": "Chat actions"
+//                                    }
+//                                }
+//                            }
+//                        },
+//                        "clientId": "CPf_1NuLsIMDFa4P1gAdCoEHlQ"
+//                    }
+//                }
+//            ]
+//        }
+//    }
+//}
 
 //
 // https://www.youtube.com/live/UicP06m9IQY

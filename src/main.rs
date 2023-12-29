@@ -30,13 +30,17 @@ async fn main() -> Result<(), std::io::Error> {
             .service(web::stylesheet)
             .service(web::dashboard_stylesheet)
             .service(web::colors)
-            .service(web::index)
+            .service(web::chat)
             .service(web::dashboard)
             .service(web::websocket)
             .service(web::logo)
     })
     .workers(1)
-    .bind(("127.0.0.1", 1350))
+    .bind(format!(
+        "{}:{}",
+        dotenvy::var("SERVER_IP").expect("SERVER_IP not defined."),
+        dotenvy::var("SERVER_PORT").expect("SERVER_PORT not defined.")
+    ))
     .expect("Could not bind requested address.")
     .run()
     .await

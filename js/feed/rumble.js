@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 user.badges.forEach((badge) => {
                     switch (badge) {
                         case "admin":
-                            message.is_staff = true;
+                            message.is_owner = true;
                             break;
                         case "moderator":
                             message.is_mod = true;

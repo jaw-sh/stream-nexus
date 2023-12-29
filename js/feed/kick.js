@@ -25,6 +25,10 @@
 // @run-at document-start
 // ==/UserScript==
 
+// ## TODO ##
+// Log outbound messages: https://kick.com/api/v2/messages/send/14693568
+// Track subs and gifted subs.
+
 (async function () {
     'use strict';
 
@@ -39,7 +43,10 @@
     fetch(`https://kick.com/api/v2/channels/${CHANNEL_ID}/messages`)
         .then(response => response.json())
         .then(json => {
-            MESSAGE_QUEUE = HANDLE_MESSAGES(json.data.messages.reverse());
+            const messages = HANDLE_MESSAGES(json.data.messages.reverse());
+            if (messages.length > 0) {
+                SEND_MESSAGES(messages);
+            }
         });
 
     //

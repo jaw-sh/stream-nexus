@@ -67,7 +67,7 @@
             return socket;
         };
         // Necessary, otherwise we are missing constant values.
-        unsafeWindow.WebSocket = Object.assign(originalWebSocket, newWebSocket);
+        unsafeWindow.WebSocket = Object.assign(newWebSocket, originalWebSocket);
         unsafeWindow.WebSocket.sneed_patched = true;
     }
 
@@ -175,16 +175,19 @@
         const messages = [];
 
         items.forEach((item) => {
+            console.log("timestamp:", item.timestamp);
             const message = CREATE_MESSAGE();
             message.id = UUID.v5(item.comment_id, NAMESPACE);
             message.username = item.channel_name;
             message.message = item.comment;
-            message.sent_at = item.timestamp;
+            message.sent_at = item.timestamp * 1000;
 
             if (item.is_fiat === true) {
                 message.amount = item.support_amount;
                 message.currency = "USD";
             }
+
+            message.is_owner = item.is_creator ?? false;
 
             messages.push(message);
         });

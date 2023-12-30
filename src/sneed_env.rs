@@ -5,6 +5,7 @@ use std::io::Write;
 
 pub fn get_env() {
     let env_map = HashMap::from([
+        ("RATE_API_KEY", ""),
         ("RUST_DEBUG", "1"),
         ("RUST_BACKTRACE", "1"),
         ("RUST_LOG", "debug"),

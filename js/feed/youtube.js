@@ -25,6 +25,10 @@
 // @run-at document-start
 // ==/UserScript==
 
+// ## TODO ##
+// - Receive self-sent outbound messages.
+// - Superchats.
+
 (async function () {
     'use strict';
 
@@ -146,7 +150,7 @@
                     message.message += run.text;
                 }
                 else if (run.emoji !== undefined) {
-                    message.message += `<img class="emoji" src="${run.emoji.image.thumbnails.at(-1).url}" alt="${run.emoji.emojiId}" />`;
+                    message.message += `<img class="emoji" data-emote="${run.emoji.emojiId}" src="${run.emoji.image.thumbnails.at(-1).url}" alt="${run.emoji.emojiId}" />`;
                 }
                 else {
                     console.log("[SNEED::YouTube] Unknown run.", run);

@@ -26,40 +26,26 @@
 // ==/UserScript==
 
 // ## TODO ##
-// Log outbound messages: https://kick.com/api/v2/messages/send/14693568
-// Track subs and gifted subs.
+// - Receive self-sent outbound messages: https://kick.com/api/v2/messages/send/14693568
+// - Track subs and gifted subs.
 
 (async function () {
     'use strict';
 
     console.log("[SNEED] Attaching to Kick.");
     const PLATFORM = "Kick";
-    const CHANNEL_NAME = window.location.href.split("/").filter(x => x).pop();
-    const CHANNEL_ID = await fetch(`https://kick.com/api/v2/channels/${CHANNEL_NAME}`).then(response => response.json()).then(data => data.id);
-
-    //
-    // Fetch Chat History
-    //
-    fetch(`https://kick.com/api/v2/channels/${CHANNEL_ID}/messages`)
-        .then(response => response.json())
-        .then(json => {
-            const messages = HANDLE_MESSAGES(json.data.messages.reverse());
-            if (messages.length > 0) {
-                SEND_MESSAGES(messages);
-            }
-        });
 
     //
     // Monkeypatch WebSocket
     //
-    if (WebSocket.prototype.send.sneed_patched === undefined) {
-        console.log("[SNEED] Monkeypatching WebSocket");
-        WebSocket.prototype.oldSendImpl = WebSocket.prototype.send;
-        WebSocket.prototype.send = function (data) {
-            this.oldSendImpl(data);
-            if (this.sneed_patched === undefined) {
-                this.sneed_patched = true;
-                this.addEventListener("message", function (msg) {
+    if (unsafeWindow.WebSocket.sneed_patched === undefined) {
+        console.log(`[SNEED::${PLATFORM}] Monkeypatching WebSocket`);
+        const { WebSocket: originalWebSocket } = unsafeWindow;
+        const newWebSocket = function (url) {
+            const socket = new originalWebSocket(url);
+            if (socket.sneed_patched === undefined) {
+                socket.sneed_patched = true;
+                socket.addEventListener("message", function (msg) {
                     if (this.is_sneed_socket !== true) {
                         const json = JSON.parse(msg.data);
 
@@ -75,9 +61,27 @@
                     }
                 }, false);
             }
-        };
-        WebSocket.prototype.send.sneed_patched = true;
+
+            return socket;
+        }
+        // Necessary, otherwise we are missing constant values.
+        unsafeWindow.WebSocket = Object.assign(newWebSocket, originalWebSocket);
+        unsafeWindow.WebSocket.sneed_patched = true;
     }
+
+    //
+    // Fetch Chat History
+    //
+    const CHANNEL_NAME = window.location.href.split("/").filter(x => x).pop();
+    const CHANNEL_ID = await fetch(`https://kick.com/api/v2/channels/${CHANNEL_NAME}`).then(response => response.json()).then(data => data.id);
+    fetch(`https://kick.com/api/v2/channels/${CHANNEL_ID}/messages`)
+        .then(response => response.json())
+        .then(json => {
+            const messages = HANDLE_MESSAGES(json.data.messages.reverse());
+            if (messages.length > 0) {
+                SEND_MESSAGES(messages);
+            }
+        });
 
     //
     // Feed Socket
@@ -163,7 +167,7 @@
             // Image file found at: https://files.kick.com/emotes/37221/fullsize
             // <img data-v-31c262c8="" data-emote-name="EZ" data-emote-id="37221" src="https://files.kick.com/emotes/37221/fullsize" alt="EZ" class="chat-emote">
             message.message.replace(/\[emote:(\d+):([^\]]+)\]/g, (match, id, name) => {
-                message.message = message.message.replace(match, `<img src="https://files.kick.com/emotes/${id}/fullsize" alt="${name}" class="emote" />`);
+                message.message = message.message.replace(match, `<img class="emote" data-emote="${name}" src="https://files.kick.com/emotes/${id}/fullsize" alt="${name}" />`);
             });
 
             messageData.sender.identity.badges.forEach((badge) => {

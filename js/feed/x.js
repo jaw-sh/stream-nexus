@@ -35,6 +35,9 @@
 // ["https://twitter\\.com", [["connect-src", "connect-src ws://127.0.0.2:1350"]]]
 //
 
+// ## TODO ##
+// - Receive self-sent outbound messages.
+
 (function () {
     'use strict';
 

@@ -1,59 +1,132 @@
-(function () {
-    const main = document.querySelector("main");
+const main = document.querySelector("main");
 
-    // Create WebSocket connection.
+// Create WebSocket connection.
+const socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
+const reconnect = () => {
+    // check if socket is connected
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        return true;
+    }
+    // attempt to connect
     const socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
-    const reconnect = () => {
-        // check if socket is connected
-        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-            return true;
-        }
-        // attempt to connect
-        const socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
-    };
+};
 
-    // Connection opened
-    socket.addEventListener("open", (event) => {
-        console.log("[SNEED] Connection established.");
-    });
+// Connection opened
+socket.addEventListener("open", (event) => {
+    console.log("[SNEED] Connection established.");
+});
 
-    // Listen for messages
-    socket.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data);
-        console.log(message);
-        // check if element already exists
-        if (document.getElementById(message.id) === null) {
-            if (!handle_command(message)) {
-                let el = document.createElement("div");
-                main.appendChild(el);
-                el.outerHTML = message.html;
-                el = document.getElementById(message.id);
+// Listen for messages
+socket.addEventListener("message", (event) => {
+    const message = JSON.parse(event.data);
+    handle_message(message);
+});
 
-                if (message.amount > 0)
-                    handle_premium(el, message);
-            }
+socket.addEventListener("close", (event) => {
+    console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
+    setTimeout(function () { reconnect(); }, 3000);
+});
 
-            while (main.children.length > 200) {
-                for (let i = 0; i < main.children.length; i++) {
-                    if (!main.childNodes[i].classList.contains("msg--sticky")) {
-                        main.childNodes[i].remove();
-                        break;
-                    }
-                }
-            }
+socket.addEventListener("error", (event) => {
+    socket.close();
+    setTimeout(function () { reconnect(); }, 3000);
+});
+
+function handle_emote(node, message) {
+    const innerEl = node.getElementsByClassName("msg-text")[0];
+    let allImages = false;
+
+    innerEl.children.forEach(el => {
+        if (el.tagName !== "IMG") {
+            allImages = false;
+            return false;
         }
     });
 
-    socket.addEventListener("close", (event) => {
-        console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
-        setTimeout(function () { reconnect(); }, 3000);
-    });
+    if (allImages) {
+        node.classList.add("msg--emote");
+    }
 
-    socket.addEventListener("error", (event) => {
-        socket.close();
-        setTimeout(function () { reconnect(); }, 3000);
-    });
-})();
+
+}
+
+function handle_message(message) {
+    // check if element already exists
+    const existingEl = document.getElementById(message.id);
+    if (existingEl !== null) {
+        return existingEl;
+    }
+
+    // check if message is a command
+    if (handle_command(message)) {
+        // consume message if it is a command.
+        return null;
+    }
+
+    // create message el
+    let el = document.createElement("div");
+    main.appendChild(el);
+    el.outerHTML = message.html;
+    el = document.getElementById(message.id);
+
+    // apply premium style
+    if (message.amount > 0)
+        handle_premium(el, message);
+    // crush standard emote replies
+    //else
+    //    handle_emote(el, message);
+
+    // remove first old message that is not sticky.
+    while (main.children.length > 1000) {
+        for (let i = 0; i < main.children.length; i++) {
+            if (!main.childNodes[i].classList.contains("msg--sticky")) {
+                main.childNodes[i].remove();
+                break;
+            }
+        }
+    }
+}
+
+function handle_premium(node, message) {
+    if (message.currency == 'USD') {
+        node.classList.add("msg--sticky");
+        recalculate_premium_positions();
+
+        // 6 seconds for every dollar, 10 minutes for $100, caps 10 minutes.
+        let time = Math.min(600, message.amount * 6);
+        //console.log(message.amount, time);
+        setTimeout(() => {
+            node.classList.remove("msg--sticky");
+            recalculate_premium_positions();
+        }, time * 1000);
+    }
+}
+
+function recalculate_premium_positions() {
+    let premium_messages = document.getElementsByClassName("msg--sticky");
+    let top = 5;
+    for (let i = 0; i < premium_messages.length; i++) {
+        top += premium_messages[i].offsetHeight + 5;
+    }
+
+    let space = document.body.scrollHeight / 2;
+    if (top > space) {
+        console.log(space, top, space - top);
+        top = space - top;
+    }
+    else {
+        top = 5;
+    }
+
+    for (let i = 0; i < premium_messages.length; i++) {
+        premium_messages[i].style.top = `${top}px`;
+        top += premium_messages[i].scrollHeight + 5;
+    }
+}
+
+//
+// Polls
+//
 
 var active_poll = null;
 const poll_ui = document.getElementById("poll-ui");
@@ -214,41 +287,4 @@ function handle_command(message) {
     }
 
     return false;
-}
-
-function handle_premium(node, message) {
-    if (message.currency == 'USD') {
-        node.classList.add("msg--sticky");
-        recalculate_premium_positions();
-
-        // 6 seconds for every dollar, 10 minutes for $100, caps 10 minutes.
-        let time = Math.min(600, message.amount * 6);
-        console.log(message.amount, time);
-        setTimeout(() => {
-            node.classList.remove("msg--sticky");
-            recalculate_premium_positions();
-        }, time * 1000);
-    }
-}
-
-function recalculate_premium_positions() {
-    let premium_messages = document.getElementsByClassName("msg--sticky");
-    let top = 5;
-    for (let i = 0; i < premium_messages.length; i++) {
-        top += premium_messages[i].offsetHeight + 5;
-    }
-
-    let space = document.body.scrollHeight / 2;
-    if (top > space) {
-        console.log(space, top, space - top);
-        top = space - top;
-    }
-    else {
-        top = 5;
-    }
-
-    for (let i = 0; i < premium_messages.length; i++) {
-        premium_messages[i].style.top = `${top}px`;
-        top += premium_messages[i].scrollHeight + 5;
-    }
 }

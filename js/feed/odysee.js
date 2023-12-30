@@ -26,6 +26,10 @@
 // @run-at document-start
 // ==/UserScript==
 
+// ## TODO ##
+// - Get avatars.
+// - Get usernames.
+
 (async function () {
     'use strict';
     console.log(`[SNEED] Attaching to Odysee.`);

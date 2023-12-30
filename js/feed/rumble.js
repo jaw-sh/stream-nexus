@@ -25,24 +25,67 @@
 // @run-at document-start
 // ==/UserScript==
 
-document.addEventListener('DOMContentLoaded', async function () {
+(async function () {
     'use strict';
 
     console.log("[SNEED] Attaching to Rumble.");
-    const UUID = await import('https://jspm.dev/uuid');
     const NAMESPACE = "5ceefcfb-4aa5-443a-bea6-1f8590231471";
     const PLATFORM = "Rumble";
+    let emotes = {};
+
+    //
+    // Fetch Monkeypatch
+    //
+    if (unsafeWindow.fetch.sneed_patch !== true) {
+        console.log("[SNEED] Monkeypatching fetch()")
+        const { fetch: originalFetch } = unsafeWindow;
+
+        unsafeWindow.fetch = async (...args) => {
+            let [resource, config] = args;
+            const response = originalFetch(resource, config);
+
+            // capture emote list
+            if (resource.includes("service.php?name=emote.list")) {
+                response.then(async (data) => {
+                    const json = await data.clone().json();
+                    json.data.items.forEach((channel) => {
+                        if (channel.emotes !== undefined && channel.emotes.length > 0) {
+                            channel.emotes.forEach((emote) => {
+                                // emotes_pack_id: 1881816
+                                // file: "https://ak2.rmbl.ws/z12/F/3/4/s/F34si.aaa.png"
+                                // id: 139169247
+                                // is_subs_only: false
+                                // moderation_status: "NOT_MODERATED"
+                                // name: "r+rumblecandy"
+                                // pack_id: 1881816
+                                // position: 0
+                                emotes[emote.name] = emote.file;
+                            });
+                        }
+                    });
+                });
+            }
+
+            return response;
+        };
+        unsafeWindow.fetch.sneed_patch = true;
+    }
+
+    //
+    // Blocking Requirements
+    //
+    const UUID = await import('https://jspm.dev/uuid');
 
     //
     // Live Counter
     //
-    (function () {
+    document.addEventListener('DOMContentLoaded', function () {
         let previous = 0;
         const observer = new MutationObserver(function (mutations, observer) {
             const value = parseInt(mutations[0].target.innerText.trim().replace(/,/g, ''), 10); // turns "504 watching" to 504
             if (!isNaN(value) && value != previous) {
                 previous = value;
-                console.log("[SNEED] Updating viewers:", value);
+                //console.log("[SNEED] Updating viewers:", value);
             }
         });
         observer.observe(document.getElementsByClassName("video-header-live-info")[0], {
@@ -50,7 +93,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             childList: true,
             subtree: true
         });
-    })();
+    });
 
     //
     // Chat Socket
@@ -157,7 +200,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             message.id = UUID.v5(messageData.id, NAMESPACE);
             message.sent_at = Date.parse(messageData.time);
-            message.message = messageData.text;
+            // replace :r+rumbleemoji: with <img> tags
+            message.message = messageData.text.replace(/:(r\+.*?)\:/g, (match, id) => {
+                if (emotes[id] !== undefined) {
+                    return `<img class="emoji" data-emote="${id}" src="${emotes[id]}" alt="${id}" />`;
+                }
+                console.log(`no emote for ${id}`);
+                return match;
+            });
 
             message.username = user.username;
             if (user['image.1'] !== undefined) {
@@ -219,7 +269,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             });
         }
     };
-});
+})();
 
 //
 // JSON API

@@ -3,6 +3,8 @@ mod message;
 mod sneed_env; // naming it "env" can be confusing.
 mod web;
 
+use crate::web::ChatServer;
+
 use actix::Actor;
 use actix_web::{App, HttpServer};
 use anyhow::Result;
@@ -12,14 +14,8 @@ async fn main() -> Result<(), std::io::Error> {
     sneed_env::get_env();
     env_logger::init();
 
-    let rate_api_key =
-        dotenvy::var("RATE_API_KEY").expect("Failed to fetch RATE_API_KEY from env.");
-    // Print length instead of the key itself to confirm a proper read.
-    // Current length of a valid free key is 32.
-    log::debug!("Found API key of length {}", rate_api_key.len());
-
-    let chat = web::ChatServer::new(
-        exchange::fetch_exchange_rates(rate_api_key.as_str())
+    let chat = ChatServer::new(
+        exchange::fetch_exchange_rates()
             .await
             .expect("Failed to fetch exchange rates."),
     )

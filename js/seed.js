@@ -83,10 +83,8 @@
             this.webSocketPatch();
             this.xhrPatch();
 
+            this.bindEvents();
             this.fetchDependencies();
-
-            this.log("Setting up.");
-            this.createChatSocket();
         }
 
         debug(message, ...args) {
@@ -108,8 +106,17 @@
             window.UUID = await import('https://jspm.dev/uuid');
         }
 
+        //
+        // Page Events
+        //
+        /// Bind generic events.
+        bindEvents() {
+            document.addEventListener("DOMContentLoaded", (event) => this.onDocumentReady(event));
+            document.addEventListener("DOMContentLoaded", (event) => this.createChatSocket());
+        }
+
         onDocumentReady() {
-            this.log("Document ready.");
+            this.debug("Document ready.");
         }
 
         //
@@ -163,7 +170,7 @@
         /// Sends messages to the Rust backend, or adds them to the queue.
         sendChatMessages(messages) {
             // Check if the chat socket is open.
-            if (this.chatSocket.readyState === WebSocket.OPEN) {
+            if (this.chatSocket.readyState === WebSocket.OPEN && this.channel !== null) {
                 // Send message queue to Rust backend.
                 this.chatSocket.send(JSON.stringify({
                     platform: this.platform,
@@ -307,6 +314,7 @@
             this.debug("XHR sent data.", body);
         }
     }
+
 
     //
     // Kick
@@ -466,6 +474,20 @@
 
 
     //
+    // Odysee
+    //
+    class Odysee extends Seed {
+        constructor() {
+            const namespace = "6efe7271-da75-4c2f-93fc-ddf37d02b8a9";
+            const platform = "Kick";
+            const channel = window.location.href.split('/').filter(x => x)[2].toLowerCase();
+            super(namespace, platform, channel);
+            this.fetchChatHistory();
+        }
+    }
+
+
+    //
     // Rumble
     //
     // ✔️ Capture new messages.
@@ -475,25 +497,28 @@
     // ❌ Capture moderator actions.
     //
     class Rumble extends Seed {
+        // Rumble emotes must be sideloaded from another request.
         emotes = [];
 
         constructor() {
             const namespace = "5ceefcfb-4aa5-443a-bea6-1f8590231471";
             const platform = "Rumble";
-            const channel = Rumble.getChannelId();
+            const channel = null; // Cannot be determined before DOM is ready.
             super(namespace, platform, channel);
         }
 
-        static getChannelId() {
+        /// Fetches the channel ID from the DOM.
+        onDocumentReady() {
             // Pop-out chat contains the channel ID in the URL.
             if (window.location.href.indexOf('/chat/popup/') >= 0) {
-                return parseInt(window.location.href.split('/').filter(x => x)[4], 10);
+                this.channel = parseInt(window.location.href.split('/').filter(x => x)[4], 10);
             }
             // Otherwise, we need to find the channel ID in the DOM.
             else {
                 // Yes, the only place in the DOM the channel ID exists is the upvote button.
-                return parseInt(document.querySelector('.rumbles-vote-pill').dataset.id, 10);
+                this.channel = parseInt(document.querySelector('.rumbles-vote-pill').dataset.id, 10);
             }
+
         }
 
         receiveChatPairs(messages, users) {
@@ -616,6 +641,10 @@
         }
     }
 
+
+    //
+    // Seed Selection
+    //
     switch (window.location.hostname) {
         case 'kick.com':
             new Kick;

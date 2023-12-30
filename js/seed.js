@@ -83,6 +83,8 @@
             this.webSocketPatch();
             this.xhrPatch();
 
+            this.fetchDependencies();
+
             this.log("Setting up.");
             this.createChatSocket();
         }
@@ -100,6 +102,10 @@
             else {
                 console.log(`[SNEED::${this.platform}] ${message}`);
             }
+        }
+
+        async fetchDependencies() {
+            window.UUID = await import('https://jspm.dev/uuid');
         }
 
         onDocumentReady() {
@@ -150,6 +156,7 @@
         // Called when the chat socket errors.
         onChatSocketError(ws, event) {
             this.debug("Chat socket errored.", event);
+            ws.close();
             setTimeout(() => this.createChatSocket(), 3000);
         }
 
@@ -307,6 +314,9 @@
     // ✔️ Capture new messages.
     // ✔️ Capture sent messages.
     // ✔️ Capture existing messages.
+    // ✔️ Capture emotes.
+    // ❌ Capture moderator actions.
+    //
     class Kick extends Seed {
         channel_id = null;
 
@@ -323,7 +333,7 @@
             fetch(`https://kick.com/api/v2/channels/${this.channel_id}/messages`)
                 .then(response => response.json())
                 .then(json => {
-                    console.log(json);
+                    this.log(json);
                     json.data.messages.reverse().forEach((messageJson) => {
                         const message = this.prepareChatMessage(messageJson);
                         this.sendChatMessages([message]);
@@ -371,7 +381,7 @@
                         message.is_sub = true;
                         break;
                     default:
-                        console.log(`[SNEED] Unknown badge type: ${badge.type}`);
+                        this.log(`Unknown badge type: ${badge.type}`);
                         break;
                 }
 
@@ -390,6 +400,9 @@
                 case "App\\Events\\ChatMessageEvent":
                     //{"event":"App\\\\Events\\\\ChatMessageEvent","data":"{…}","channel":"chatrooms.35535.v2"}
                     this.receiveChatMessage(JSON.parse(json.data));
+                    break;
+                case "App\\Events\\UserBannedEvent":
+                    // {"event":"App\\Events\\UserBannedEvent","data":"{\"id\":\"a3aadb10-22ae-4081-ba8f-46bb9a6c89ff\",\"user\":{\"id\":25556531,\"username\":\"JohnsonAndJohnson1\",\"slug\":\"johnsonandjohnson1\"},\"banned_by\":{\"id\":0,\"username\":\"covid1942\",\"slug\":\"covid1942\"}}","channel":"chatrooms.2507974.v2"}
                     break;
                 case "pusher_internal:subscription_succeeded":
                     //{"event":"pusher_internal:subscription_succeeded","data":"{}","channel":"chatrooms.14693568.v2"}
@@ -451,9 +464,164 @@
         }
     }
 
+
+    //
+    // Rumble
+    //
+    // ✔️ Capture new messages.
+    // ✔️ Capture sent messages.
+    // ✔️ Capture existing messages.
+    // ✔️ Capture emotes.
+    // ❌ Capture moderator actions.
+    //
+    class Rumble extends Seed {
+        emotes = [];
+
+        constructor() {
+            const namespace = "5ceefcfb-4aa5-443a-bea6-1f8590231471";
+            const platform = "Rumble";
+            const channel = Rumble.getChannelId();
+            super(namespace, platform, channel);
+        }
+
+        static getChannelId() {
+            // Pop-out chat contains the channel ID in the URL.
+            if (window.location.href.indexOf('/chat/popup/') >= 0) {
+                return parseInt(window.location.href.split('/').filter(x => x)[4], 10);
+            }
+            // Otherwise, we need to find the channel ID in the DOM.
+            else {
+                // Yes, the only place in the DOM the channel ID exists is the upvote button.
+                return parseInt(document.querySelector('.rumbles-vote-pill').dataset.id, 10);
+            }
+        }
+
+        receiveChatPairs(messages, users) {
+            const newMessages = this.prepareChatMessages(messages, users);
+            this.sendChatMessages(newMessages);
+        }
+
+        prepareChatMessages(messages, users) {
+            const newMessages = [];
+            messages.forEach((messageData, index) => {
+                const message = new ChatMessage(
+                    UUID.v5(messageData.id, this.namespace),
+                    this.platform,
+                    this.channel
+                );
+
+                const user = users.find((user) => user.id === messageData.user_id);
+                if (user === undefined) {
+                    this.log("User not found:", messageData.user_id);
+                    return;
+                }
+
+                message.sent_at = Date.parse(messageData.time);
+                // replace :r+rumbleemoji: with <img> tags
+                message.message = messageData.text.replace(/:(r\+.*?)\:/g, (match, id) => {
+                    // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}	
+                    if (this.emotes[id] !== undefined) {
+                        return `<img class="emoji" data-emote="${id}" src="${this.emotes[id]}" alt="${id}" />`;
+                    }
+                    this.log(`no emote for ${id}`);
+                    return match;
+                });
+
+                message.username = user.username;
+                if (user['image.1'] !== undefined) {
+                    message.avatar = user['image.1'];
+                }
+
+                if (user.badges !== undefined) {
+                    user.badges.forEach((badge) => {
+                        switch (badge) {
+                            case "admin":
+                                message.is_owner = true;
+                                break;
+                            case "moderator":
+                                message.is_mod = true;
+                                break;
+                            case "whale-gray":
+                            case "whale-blue":
+                            case "whale-yellow":
+                            case "locals":
+                            case "locals_supporter":
+                            case "recurring_subscription":
+                                message.is_sub = true;
+                                break;
+                            case "premium":
+                                break;
+                            case "verified":
+                                message.is_verified = true;
+                                break;
+                            default:
+                                this.log(`Unknown badge type: ${badge.type}`);
+                                break;
+                        }
+                    });
+                }
+
+                if (messageData.rant !== undefined) {
+                    message.amount = messageData.rant.price_cents / 100;
+                    message.currency = "USD";
+                }
+
+                newMessages.push(message);
+            });
+
+            return newMessages;
+        }
+
+        // Called when an EventSource receives a message.
+        onEventSourceMessage(es, event) {
+            try {
+                const json = JSON.parse(event.data);
+                switch (json.type) {
+                    case "init":
+                    case "messages":
+                        this.receiveChatPairs(json.data.messages, json.data.users);
+                        // Messages sent to Rumble are also received as a message in the EventStream.
+                        break;
+                    default:
+                        this.debug("EventSource received data with unknown type.", json);
+                        break;
+                }
+            }
+            catch (e) {
+                this.log("EventSource received data with invalid JSON.", e, event.data);
+            }
+        }
+
+        async onFetchResponse(response) {
+            const url = new URL(response.url);
+            if (url.searchParams.get('name') == "emote.list") {
+                await response.json().then((json) => {
+                    json.data.items.forEach((channel) => {
+                        if (channel.emotes !== undefined && channel.emotes.length > 0) {
+                            channel.emotes.forEach((emote) => {
+                                // emotes_pack_id: 1881816
+                                // file: "https://ak2.rmbl.ws/z12/F/3/4/s/F34si.aaa.png"
+                                // id: 139169247
+                                // is_subs_only: false
+                                // moderation_status: "NOT_MODERATED"
+                                // name: "r+rumblecandy"
+                                // pack_id: 1881816
+                                // position: 0
+                                this.emotes[emote.name] = emote.file;
+                            });
+                        }
+                    });
+                });
+            }
+        }
+    }
+
     switch (window.location.hostname) {
         case 'kick.com':
             new Kick;
+            break;
+        case 'rumble.com':
+            new Rumble;
             break;
         default:
             console.log(`[SNEED] No platform detected for ${window.location.hostname}.`);

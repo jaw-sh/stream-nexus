@@ -35,6 +35,7 @@
     console.log("[SNEED] Attaching to Kick.");
     const PLATFORM = "Kick";
 
+    const MESSAGE_HISTORY = []; // Contains the last 100 messages, used to filter duplicates.
     //
     // Monkeypatch WebSocket
     //
@@ -198,6 +199,22 @@
 
             messages.push(message);
         });
+
+        // check for duplicates using MESSAGE_HISTORY and remove them
+        messages.forEach((message) => {
+            const similar = MESSAGE_HISTORY.filter((m) => {
+                return m.username === message.username && m.message === message.message && m.sent_at > (message.sent_at - 5000);
+            });
+
+            if (similar.length > 0)
+                messages.splice(messages.indexOf(message), 1);
+        });
+
+        MESSAGE_HISTORY.push(...messages);
+
+        // Only keep the last 100 messages.
+        if (MESSAGE_HISTORY.length > 100)
+            MESSAGE_HISTORY.splice(0, MESSAGE_HISTORY.length - 100);
 
         return messages;
     };

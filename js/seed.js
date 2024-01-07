@@ -907,7 +907,7 @@
     //
     // ✔️ Capture new messages.
     // ❌ Capture sent messages.
-    // ❌ Capture existing messages.
+    // ⭕ Capture existing messages.
     // ❌ Capture emotes.
     // ⭕ Capture moderator actions.
     // ❌ Capture view counts.
@@ -930,10 +930,10 @@
             pairs.forEach((pair) => {
                 const message = new ChatMessage(pair.body.uuid, this.platform, this.channel);
 
-                message.username = pair.body.username;
+                message.username = pair.sender.username;
                 message.message = pair.body.body;
                 message.sent_at = pair.body.timestamp;
-                message.avatar = pair.sender.profile_image_url;
+                message.avatar = pair.sender.profile_image_url ?? "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
                 message.is_verified = pair.sender.verified ?? false;
 
                 messages.push(message);
@@ -942,12 +942,11 @@
             return messages;
         }
 
-        // Called when a websocket receives a message.
-        onWebSocketMessage(ws, event) {
-            const data = JSON.parse(event.data);
+        parseWebSocketMessage(data) {
             switch (data.kind) {
                 // chat messages and random junk
                 case 1:
+                    console.log(data);
                     const payload = JSON.parse(data.payload);
                     if (payload.sender !== undefined && payload.body !== undefined) {
                         const body = JSON.parse(payload.body);
@@ -973,6 +972,18 @@
                 default:
                     break;
             }
+        }
+
+        // Called when a websocket receives a message.
+        onWebSocketMessage(ws, event) {
+            const data = JSON.parse(event.data);
+            this.parseWebSocketMessage(data);
+        }
+
+        // Called when a websocket sends a message.
+        onWebSocketSend(ws, message) {
+            const data = JSON.parse(message);
+            this.parseWebSocketMessage(data);
         }
     }
 

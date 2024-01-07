@@ -906,11 +906,11 @@
     // 𝕏
     //
     // ✔️ Capture new messages.
-    // ❌ Capture sent messages.
+    // ✔️ Capture sent messages.
     // ⭕ Capture existing messages.
-    // ❌ Capture emotes.
+    // ⭕ Capture emotes.
     // ⭕ Capture moderator actions.
-    // ❌ Capture view counts.
+    // ✔️ Capture view counts.
     //
     class X extends Seed {
         constructor() {
@@ -933,6 +933,7 @@
                 message.username = pair.sender.username;
                 message.message = pair.body.body;
                 message.sent_at = pair.body.timestamp;
+                // TODO: Sender avatars not present.
                 message.avatar = pair.sender.profile_image_url ?? "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
                 message.is_verified = pair.sender.verified ?? false;
 
@@ -946,7 +947,6 @@
             switch (data.kind) {
                 // chat messages and random junk
                 case 1:
-                    console.log(data);
                     const payload = JSON.parse(data.payload);
                     if (payload.sender !== undefined && payload.body !== undefined) {
                         const body = JSON.parse(payload.body);
@@ -967,7 +967,8 @@
                     break;
                 // viewer counts
                 case 2:
-                    // "{"kind":4,"sender":{"user_id":""},"body":"{\"room\":\"1vOxwjQLwPmJB\",\"occupancy\":384,\"total_participants\":19922}"}"
+                    const payload2 = JSON.parse(data.payload);
+                    this.sendViewerCount(payload2.body.occupancy);
                     break;
                 default:
                     break;

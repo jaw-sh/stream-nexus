@@ -1,31 +1,45 @@
 // ==UserScript==
 // @name S.N.E.E.D.
-// @version 1.2.0
+// @version 1.2.1
 // @description Stream Nexus userscript.
 // @license BSD-3-Clause
 // @author Joshua Moon <josh@josh.rs>
+// @downloadURL https://raw.githubusercontent.com/jaw-sh/stream-nexus/master/js/seed.js
+// @updateURL https://raw.githubusercontent.com/jaw-sh/stream-nexus/master/js/seed.js
 // @homepageURL https://github.com/jaw-sh/stream-nexus
 // @supportURL https://github.com/jaw-sh/stream-nexus/issues
 // @match https://kick.com/*
 // @match https://kick.com/*/chatroom
-// @match https://odysee.com/@*/*
+// @match https://odysee.com/*
 // @match https://odysee.com/$/popout/*
 // @match https://rumble.com/v*.html
 // @match https://rumble.com/chat/popup/*
-// @match https://www.twitch.tv/*
+// @match https://twitch.tv/*
+// @match https://twitch.tv/popout/*/chat
+// @match https://www.youtube.com/live_chat?*
+// @match https://youtube.com/live_chat?*
 // @match https://vk.com/video/lives?z=*
 // @match https://twitter.com/i/broadcasts/*
 // @match https://x.com/i/broadcasts/*
-// @match https://www.youtube.com/live_chat?*
 // @connect *
 // @grant unsafeWindow
 // @run-at document-start
 // ==/UserScript==
+
+//
+// CONTENT-SECURITY-POLICY (CSP) NOTICE
+// X blocks outbound connections via connect-src, including to local servers.
+// You have to run another extension to edit the policy.
+//
+// https://chromewebstore.google.com/detail/content-security-policy-o/lhieoncdgamiiogcllfmboilhgoknmpi?hl=en
+// ["https://twitter\\.com", [["connect-src", "connect-src ws://127.0.0.2:1350"]]]
+//
+
 (async function () {
     'use strict';
 
     const SOCKET_URL = "ws://127.0.0.2:1350/chat.ws";
-    const DEBUG = true;
+    const DEBUG = false;
 
     //
     // Chat Message
@@ -102,6 +116,16 @@
             }
         }
 
+        warn(message, ...args) {
+            const f = console.warn ?? console.log;
+            if (args.length > 0) {
+                f(`[SNEED::${this.platform}] ${message}`, ...args);
+            }
+            else {
+                f(`[SNEED::${this.platform}] ${message}`);
+            }
+        }
+
         async fetchDependencies() {
             window.UUID = await import('https://jspm.dev/uuid');
         }
@@ -170,7 +194,9 @@
         /// Sends messages to the Rust backend, or adds them to the queue.
         sendChatMessages(messages) {
             // Check if the chat socket is open.
-            if (this.chatSocket.readyState === WebSocket.OPEN && this.channel !== null) {
+            const ws_open = this.chatSocket.readyState === WebSocket.OPEN;
+            const seed_ready = this.channel !== null;
+            if (ws_open && seed_ready) {
                 // Send message queue to Rust backend.
                 this.chatSocket.send(JSON.stringify({
                     platform: this.platform,
@@ -180,8 +206,14 @@
             }
             else {
                 // Add messages to queue.
+                this.warn("Forcing messages to queue. Socket open:", ws_open, "Seed ready:", seed_ready);
                 this.chatMessageQueue.push(...messages);
             }
+        }
+
+        /// Sends live viewer counts to the Rust backend.
+        sendViewerCount(count) {
+            //
         }
 
         //
@@ -324,6 +356,7 @@
     // ✔️ Capture existing messages.
     // ✔️ Capture emotes.
     // ❌ Capture moderator actions.
+    // ❌ Capture view counts.
     //
     class Kick extends Seed {
         channel_id = null;
@@ -406,7 +439,7 @@
 
             switch (json.event) {
                 case "App\\Events\\ChatMessageEvent":
-                    //{"event":"App\\\\Events\\\\ChatMessageEvent","data":"{…}","channel":"chatrooms.35535.v2"}
+                    //{"event":"App\\\\Events\\\\ChatMessageEvent","data":"{â€¦}","channel":"chatrooms.35535.v2"}
                     this.receiveChatMessage(JSON.parse(json.data));
                     break;
                 case "App\\Events\\UserBannedEvent":
@@ -476,13 +509,94 @@
     //
     // Odysee
     //
+    // ✔️ Capture new messages.
+    // ✔️ Capture sent messages.
+    // ✔️ Capture existing messages.
+    // ✔️ Capture emotes.
+    // ❌ Capture moderator actions.
+    // ✔️ Capture view counts.
+    //
     class Odysee extends Seed {
         constructor() {
-            const namespace = "6efe7271-da75-4c2f-93fc-ddf37d02b8a9";
-            const platform = "Kick";
-            const channel = window.location.href.split('/').filter(x => x)[2].toLowerCase();
+            const namespace = "d80f03bf-d30a-48e9-9e9f-81616366eefd";
+            const platform = "Odysee";
+            const channel = window.location.href.split('/').filter(x => x).at(-2);;
             super(namespace, platform, channel);
-            this.fetchChatHistory();
+        }
+
+        receiveChatMessages(json) {
+            const messages = this.prepareChatMessages(json);
+            this.sendChatMessages(messages);
+        }
+
+        prepareChatMessages(json) {
+            const messages = [];
+            json.forEach((item) => {
+                const message = new ChatMessage(
+                    UUID.v5(item.comment_id, this.namespace),
+                    this.platform,
+                    this.channel
+                );
+                message.avatar = "https://thumbnails.odycdn.com/optimize/s:160:160/quality:85/plain/https://spee.ch/spaceman-png:2.png";
+                message.username = item.channel_name;
+                message.message = item.comment;
+                message.sent_at = ((item.timestamp - 1) * 1000); // Odysee timestamps to round up, which causes messages to appear out of order.
+
+                if (item.is_fiat === true) {
+                    message.amount = item.support_amount;
+                    message.currency = "USD";
+                }
+
+                message.is_owner = item.is_creator ?? false;
+
+                messages.push(message);
+            });
+
+            return messages;
+        }
+
+        /// Accepts chat histories and outbound messages.
+        async onFetchResponse(response) {
+            const url = new URL(response.url);
+            switch (url.searchParams.get('m')) {
+                case "comment.List":
+                case "comment.SuperChatList":
+                    await response.json().then(async (data) => {
+                        if (data.result !== undefined && data.result.items !== undefined) {
+                            this.receiveChatMessages(data.result.items);
+                        }
+                    });
+                    break;
+                case "comment.Create":
+                    await response.json().then(async (data) => {
+                        if (data.result !== undefined && data.result.comment_id !== undefined) {
+                            this.receiveChatMessages([data.result]);
+                        }
+                        return data;
+                    });
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        // Called when a websocket receives a message.
+        onWebSocketMessage(ws, event) {
+            const json = JSON.parse(event.data);
+            switch (json.type) {
+                case "delta":
+                    this.receiveChatMessages([json.data.comment]);
+                    break;
+                case "removed":
+                    //{"type":"removed","data":{"comment":{"channel_id":"6956205bc194579e1a7c134e62355b80bf175843","channel_name":"@TheRedBaron","channel_url":"lbry://@TheRedBaron#6956205bc194579e1a7c134e62355b80bf175843","claim_id":"d826937ad9bf3b7991eada5034c4612389583bc1","comment":"@mati:c Yo, Cool stream the other night btw","comment_id":"be44038f7905fb006c25beecb89818f54064d476234c7f637241eab40c48526f","currency":"","is_fiat":false,"is_hidden":false,"is_pinned":false,"is_protected":false,"signature":"6e839ae4378de454de96d597332ff05ad09133348bbd1e77d7b055c184ba34bd609976e18968fa537a49078eeb8bef3a9243211ba9ca5ed345603687945ab891","signing_ts":"1703974695","support_amount":0,"timestamp":1703974696}}}	
+                    break;
+                case "viewers":
+                    this.sendViewerCount(json.data.connected);
+                    break;
+                default:
+                    this.log(`Unknown update type.`, json);
+                    break;
+            }
         }
     }
 
@@ -495,6 +609,7 @@
     // ✔️ Capture existing messages.
     // ✔️ Capture emotes.
     // ❌ Capture moderator actions.
+    // ❌ Capture view counts.
     //
     class Rumble extends Seed {
         // Rumble emotes must be sideloaded from another request.
@@ -641,6 +756,225 @@
         }
     }
 
+    //
+    // Twitch
+    //
+    class Twitch extends Seed {
+
+        constructor() {
+            const namespace = "4a342b79-e302-403a-99be-669b5f27b152";
+            const platform = "Twitch";
+            const is_popout = window.location.href.indexOf('/popout/') >= 0;
+            const channel = window.location.href.split('/').filter(x => x).at(is_popout ? 3 : 2);
+
+            if (channel === "p") {
+                this.log("Within Twitch static /p/ directory: terminating.");
+                return null;
+            }
+            else {
+                return super(namespace, platform, channel);
+            }
+        }
+
+        // Twitch messages are encoded in a strange way because it is a WebSocket to IRC bridge.
+        // It is split into 3 parts by : and the first segment is delineated by ;
+        // @
+        //   badge-info=;
+        //   badges=rplace-2023/1;
+        //   color=#FF0000;
+        //   display-name=dragogamer48;
+        //   emotes=;
+        //   first-msg=0;
+        //   flags=;
+        //   id=b7ce49cb-7b3d-485e-8e54-233b77ac8d91;
+        //   mod=0;
+        //   returning-chatter=0;
+        //   room-id=90075649;
+        //   subscriber=0;
+        //   tmi-sent-ts=1704653293738;
+        //   turbo=0;
+        //   user-id=709862804;
+        //   user-type=
+        // :dragogamer48!dragogamer48@dragogamer48.tmi.twitch.tv PRIVMSG #illojuan
+        // :KEK
+    }
+
+    //
+    // YouTube
+    //
+    // ✔️ Capture new messages.
+    // ✔️ Capture sent messages.
+    // ❌ Capture existing messages.
+    // ✔️ Capture emotes.
+    // ❌ Capture moderator actions.
+    // ❌ Capture view counts.
+    //
+    class YouTube extends Seed {
+        constructor() {
+            const namespace = "fd60ac36-d6b5-49dc-aee6-b0d87d130582";
+            const platform = "YouTube";
+            const channel = null; // Cannot be determined before DOM is ready.
+            super(namespace, platform, channel);
+        }
+
+        prepareChatMessages(actions) {
+            const messages = [];
+
+            actions.forEach((action) => {
+                const message = new ChatMessage(
+                    UUID.v5(action.item.liveChatTextMessageRenderer.id, this.namespace),
+                    this.platform,
+                    this.channel
+                );
+                message.username = action.item.liveChatTextMessageRenderer.authorName.simpleText;
+                message.avatar = action.item.liveChatTextMessageRenderer.authorPhoto.thumbnails.at(-1).url;
+                message.sent_at = parseInt(action.item.liveChatTextMessageRenderer.timestampUsec / 1000);
+
+                action.item.liveChatTextMessageRenderer.message.runs.forEach((run) => {
+                    if (run.text !== undefined) {
+                        message.message += run.text;
+                    }
+                    else if (run.emoji !== undefined) {
+                        message.message += `<img class="emoji" data-emote="${run.emoji.emojiId}" src="${run.emoji.image.thumbnails.at(-1).url}" alt="${run.emoji.emojiId}" />`;
+                    }
+                    else {
+                        this.log("[SNEED::YouTube] Unknown run.", run);
+                    }
+                });
+
+                messages.push(message);
+            });
+
+            return messages;
+        }
+
+        async onDocumentReady(event) {
+            this.log("Document ready, preparing to load channel information.");
+            const yt = unsafeWindow.ytInitialData;
+            let video_id = new URL(window.location.href).searchParams.get("v");
+            if (video_id === null) {
+                if (yt.continuationContents !== undefined && yt.continuationContents.liveChatContinuation !== undefined) {
+                    video_id = yt.continuationContents.liveChatContinuation.continuations[0].invalidationContinuationData.invalidationId.topic.split("~")[1];
+                }
+                else if (yt.contents.liveChatRenderer !== undefined) {
+                    video_id = yt.contents.liveChatRenderer.continuations[0].invalidationContinuationData.invalidationId.topic.split("~")[1];
+                }
+                else {
+                    this.log("Cannot identify video ID.", JSON.parse(JSON.stringify(contents)));
+                }
+            }
+            this.log("Video ID:", video_id);
+
+            const author_url = await fetch(`https://www.youtube.com/oembed?url=http%3A//youtube.com/watch%3Fv%3D${video_id}&format=json`)
+                .then(response => response.json())
+                .then(json => json.author_url);
+            this.log("Author URL:", author_url);
+            this.channel = await fetch(author_url)
+                .then(response => response.text())
+                .then(text => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, "text/html");
+                    return doc.querySelector('meta[itemprop="identifier"]').content;
+                });
+            this.log("Received channel info.", video_id, author_url, this.channel);
+        }
+
+        // Called when a fetch's promise is fulfilled.
+        async onFetchResponse(response) {
+            if (response.url.indexOf("/get_live_chat") >= 0) {
+                await response.json().then((json) => {
+                    if (
+                        json.continuationContents !== undefined &&
+                        json.continuationContents.liveChatContinuation !== undefined &&
+                        json.continuationContents.liveChatContinuation.actions !== undefined
+                    ) {
+                        json.continuationContents.liveChatContinuation.actions.forEach((action) => {
+                            if (action.addChatItemAction !== undefined) {
+                                this.receiveChatMessages([action.addChatItemAction]);
+                            }
+                            else {
+                                this.log("Unknown action.", action);
+                            }
+                        });
+                    }
+                });
+            }
+        }
+    }
+
+    //
+    // 𝕏
+    //
+    // ✔️ Capture new messages.
+    // ❌ Capture sent messages.
+    // ❌ Capture existing messages.
+    // ❌ Capture emotes.
+    // ⭕ Capture moderator actions.
+    // ❌ Capture view counts.
+    //
+    class X extends Seed {
+        constructor() {
+            const namespace = "0abb36b8-43ab-40b5-be61-4f2c32a75890";
+            const platform = "X";
+            const channel = window.location.href.split('/').filter(x => x).at(-1); // Broadcast ID, not channel name.
+            super(namespace, platform, channel);
+        }
+
+        async fetchDependencies() {
+            // X provides UUIDs for messages, and its CSP blocks the import.
+        }
+
+        prepareChatMessages(pairs) {
+            var messages = [];
+
+            pairs.forEach((pair) => {
+                const message = new ChatMessage(pair.body.uuid, this.platform, this.channel);
+
+                message.username = pair.body.username;
+                message.message = pair.body.body;
+                message.sent_at = pair.body.timestamp;
+                message.avatar = pair.sender.profile_image_url;
+                message.is_verified = pair.sender.verified ?? false;
+
+                messages.push(message);
+            });
+
+            return messages;
+        }
+
+        // Called when a websocket receives a message.
+        onWebSocketMessage(ws, event) {
+            const data = JSON.parse(event.data);
+            switch (data.kind) {
+                // chat messages and random junk
+                case 1:
+                    const payload = JSON.parse(data.payload);
+                    if (payload.sender !== undefined && payload.body !== undefined) {
+                        const body = JSON.parse(payload.body);
+                        // Filter updates that do not include text.
+                        if (body.body !== undefined) {
+                            const messages = this.prepareChatMessages([{
+                                sender: payload.sender,
+                                body: body
+                            }]);
+                            if (messages.length > 0) {
+                                this.sendChatMessages(messages);
+                            }
+                        }
+                    }
+                    else {
+                        this.log("[SNEED::X] Unknown message type:", data);
+                    }
+                    break;
+                // viewer counts
+                case 2:
+                    // "{"kind":4,"sender":{"user_id":""},"body":"{\"room\":\"1vOxwjQLwPmJB\",\"occupancy\":384,\"total_participants\":19922}"}"
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 
     //
     // Seed Selection
@@ -649,8 +983,21 @@
         case 'kick.com':
             new Kick;
             break;
+        case 'odysee.com':
+            new Odysee;
+            break;
         case 'rumble.com':
             new Rumble;
+            break;
+        case 'twitch':
+            new Twitch;
+        case 'www.youtube.com':
+        case 'youtube.com':
+            new YouTube;
+            break;
+        case "twitter.com":
+        case "x.com":
+            new X;
             break;
         default:
             console.log(`[SNEED] No platform detected for ${window.location.hostname}.`);

@@ -525,13 +525,11 @@
         }
 
         receiveChatMessages(json) {
-            const messages = this.prepareChatMessages(json);
-            this.sendChatMessages(messages);
+            return this.prepareChatMessages(json).then(this.sendChatMessages);
         }
 
         prepareChatMessages(json) {
-            const messages = [];
-            json.forEach((item) => {
+            return Promise.all(json.map(async (item) => {
                 const message = new ChatMessage(
                     UUID.v5(item.comment_id, this.namespace),
                     this.platform,
@@ -549,10 +547,8 @@
 
                 message.is_owner = item.is_creator ?? false;
 
-                messages.push(message);
-            });
-
-            return messages;
+                return message;
+            }));
         }
 
         /// Accepts chat histories and outbound messages.
@@ -637,13 +633,11 @@
         }
 
         receiveChatPairs(messages, users) {
-            const newMessages = this.prepareChatMessages(messages, users);
-            this.sendChatMessages(newMessages);
+            return this.prepareChatMessages(messages, users).then(this.sendChatMessages);
         }
 
         prepareChatMessages(messages, users) {
-            const newMessages = [];
-            messages.forEach((messageData, index) => {
+            return Promise.all(messages.map(async (messageData, index) => {
                 const message = new ChatMessage(
                     UUID.v5(messageData.id, this.namespace),
                     this.platform,
@@ -706,10 +700,8 @@
                     message.currency = "USD";
                 }
 
-                newMessages.push(message);
-            });
-
-            return newMessages;
+                return message;
+            }));
         }
 
         // Called when an EventSource receives a message.
@@ -818,9 +810,7 @@
         }
 
         prepareChatMessages(actions) {
-            const messages = [];
-
-            actions.forEach((action) => {
+            return Promise.all(actions.map(async (action) => {
                 const message = new ChatMessage(
                     UUID.v5(action.item.liveChatTextMessageRenderer.id, this.namespace),
                     this.platform,
@@ -842,10 +832,8 @@
                     }
                 });
 
-                messages.push(message);
-            });
-
-            return messages;
+                return message;
+            }));
         }
 
         async onDocumentReady(event) {
@@ -925,9 +913,7 @@
         }
 
         prepareChatMessages(pairs) {
-            var messages = [];
-
-            pairs.forEach((pair) => {
+            return Promise.all(pairs.map(async (pair) => {
                 const message = new ChatMessage(pair.body.uuid, this.platform, this.channel);
 
                 message.username = pair.sender.username;
@@ -937,10 +923,8 @@
                 message.avatar = pair.sender.profile_image_url ?? "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
                 message.is_verified = pair.sender.verified ?? false;
 
-                messages.push(message);
-            });
-
-            return messages;
+                return message;
+            }));
         }
 
         parseWebSocketMessage(data) {
@@ -952,18 +936,14 @@
                         const body = JSON.parse(payload.body);
                         // Filter updates that do not include text.
                         if (body.body !== undefined) {
-                            const messages = this.prepareChatMessages([{
+                            return this.prepareChatMessages([{
                                 sender: payload.sender,
                                 body: body
-                            }]);
-                            if (messages.length > 0) {
-                                this.sendChatMessages(messages);
-                            }
+                            }]).then(this.sendChatMessages);
                         }
                     }
-                    else {
-                        this.log("[SNEED::X] Unknown message type:", data);
-                    }
+
+                    this.log("[SNEED::X] Unknown message type:", data);
                     break;
                 // viewer counts
                 case 2:

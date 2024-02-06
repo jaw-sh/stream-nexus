@@ -194,7 +194,7 @@
         /// Sends messages to the Rust backend, or adds them to the queue.
         sendChatMessages(messages) {
             // Check if the chat socket is open.
-            const ws_open = this.chatSocket.readyState === WebSocket.OPEN;
+            const ws_open = this.chatSocket !== undefined && this.chatSocket.readyState === WebSocket.OPEN;
             const seed_ready = this.channel !== null;
             if (ws_open && seed_ready) {
                 // Send message queue to Rust backend.
@@ -525,7 +525,9 @@
         }
 
         receiveChatMessages(json) {
-            return this.prepareChatMessages(json).then(this.sendChatMessages);
+            return this.prepareChatMessages(json).then((data) => {
+                this.sendChatMessages(data);
+            });
         }
 
         prepareChatMessages(json) {
@@ -633,7 +635,9 @@
         }
 
         receiveChatPairs(messages, users) {
-            return this.prepareChatMessages(messages, users).then(this.sendChatMessages);
+            return this.prepareChatMessages(messages, users).then((data) => {
+                this.sendChatMessages(data);
+            });
         }
 
         prepareChatMessages(messages, users) {
@@ -652,7 +656,7 @@
 
                 message.sent_at = Date.parse(messageData.time);
                 // replace :r+rumbleemoji: with <img> tags
-                message.message = messageData.text.replace(/:(r\+.*?)\:/g, (match, id) => {
+                message.message = messageData.text.replace(/\:([a-zA-Z0-9_.-]+)\:/g, (match, id) => {
                     // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}	
                     if (this.emotes[id] !== undefined) {
                         return `<img class="emoji" data-emote="${id}" src="${this.emotes[id]}" alt="${id}" />`;
@@ -939,7 +943,9 @@
                             return this.prepareChatMessages([{
                                 sender: payload.sender,
                                 body: body
-                            }]).then(this.sendChatMessages);
+                            }]).then((data) => {
+                                this.sendChatMessages(data);
+                            });
                         }
                     }
 

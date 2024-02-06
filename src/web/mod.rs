@@ -8,9 +8,11 @@ pub use message::PaidMessages;
 pub use server::ChatServer;
 
 use actix::Addr;
+use actix_web::HttpResponseBuilder;
 use actix_web::{http::header, web, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
 use askama_actix::Template;
+use askama_actix::TemplateToResponse;
 use std::time::{Duration, Instant};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
@@ -28,7 +30,12 @@ struct DashboardTemplate {
 
 #[actix_web::get("/chat")]
 pub async fn chat() -> impl Responder {
-    ChatTemplate {}
+    HttpResponse::Ok()
+        .insert_header((
+            header::CONTENT_SECURITY_POLICY,
+            "default-src 'self'; img-src * 'self' data:; font-src *; style-src * 'unsafe-inline';",
+        ))
+        .body(ChatTemplate {}.to_string())
 }
 
 #[actix_web::get("/dashboard")]

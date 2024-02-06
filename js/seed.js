@@ -904,6 +904,9 @@
     // ⭕ Capture moderator actions.
     // ✔️ Capture view counts.
     //
+    // Protip: Use this query to find Livestreams.
+    // https://twitter.com/search?f=live&q=twitter.com%2Fi%2Fbroadcasts%20filter%3Alinks%20-filter%3Areplies&src=typed_query
+    //
     class X extends Seed {
         constructor() {
             const namespace = "0abb36b8-43ab-40b5-be61-4f2c32a75890";
@@ -922,7 +925,15 @@
 
                 message.username = pair.sender.username;
                 message.message = pair.body.body;
-                message.sent_at = pair.body.timestamp;
+                // There is a very strange issue with X where messages are sometimes received with dates in the future.
+                // In these instances, we will want to instead use the current date.
+                if (pair.body.timestamp <= new Date) {
+                    message.sent_at = pair.body.timestamp;
+                    console.warn("Received message with future timestamp:", pair.body.timestamp);
+                }
+                else {
+                    message.sent_at = (new Date) / 1;
+                }
                 // TODO: Sender avatars not present.
                 message.avatar = pair.sender.profile_image_url ?? "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
                 message.is_verified = pair.sender.verified ?? false;

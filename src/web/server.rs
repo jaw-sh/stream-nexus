@@ -23,6 +23,39 @@ impl ChatServer {
     pub fn new(exchange_rates: ExchangeRates) -> Self {
         log::info!("Chat actor starting up.");
 
+        // get last modified time of superchats.json
+        let super_chats_last_modified = std::fs::metadata("super_chats.json")
+            .map(|meta| meta.modified().unwrap())
+            .ok();
+
+        // if superchats.json exists and was modified in the last 15 minutes, load it
+        if let Some(super_chats_last_modified) = super_chats_last_modified {
+            let now = std::time::SystemTime::now();
+            let duration = now.duration_since(super_chats_last_modified).unwrap();
+            if duration.as_secs() < 900 {
+                // Load superchats from disk.
+                let super_chats_json = std::fs::read_to_string("super_chats.json");
+                if let Ok(super_chats_json) = super_chats_json {
+                    log::info!("Loading superchats from disk.");
+                    let super_chats: Vec<ChatMessage> =
+                        serde_json::from_str(&super_chats_json).unwrap();
+                    let paid_messages: Vec<Uuid> = super_chats.iter().map(|msg| msg.id).collect();
+
+                    // convert to hashmap
+                    let chat_messages: HashMap<Uuid, ChatMessage> = super_chats
+                        .iter()
+                        .map(|msg| (msg.id, msg.clone()))
+                        .collect();
+                    return Self {
+                        clients: HashMap::with_capacity(100),
+                        chat_messages,
+                        paid_messages,
+                        exchange_rates,
+                    };
+                }
+            }
+        }
+
         Self {
             clients: HashMap::with_capacity(100),
             chat_messages: HashMap::with_capacity(100),
@@ -96,6 +129,18 @@ impl Handler<message::Content> for ChatServer {
                 self.paid_messages.reserve(100);
             }
             self.paid_messages.push(id);
+
+            // Save all messages with amount > 0 to disk in case of a crash
+            let mut super_chats: Vec<ChatMessage> = self
+                .paid_messages
+                .iter()
+                .filter_map(|id| self.chat_messages.get(id).cloned())
+                .collect();
+
+            super_chats.sort_by_key(|msg| msg.received_at);
+
+            let super_chats_json = serde_json::to_string(&super_chats).unwrap();
+            std::fs::write("super_chats.json", super_chats_json).unwrap();
         }
     }
 }

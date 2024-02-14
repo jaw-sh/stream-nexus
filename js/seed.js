@@ -38,7 +38,7 @@
 (async function () {
     'use strict';
 
-    const SOCKET_URL = "ws://127.0.0.2:1350/chat.ws";
+    const SOCKET_URL = "ws://127.0.0.1:1350/chat.ws";
     const DEBUG = true;
 
     //
@@ -53,6 +53,7 @@
             this.received_at = Date.now(); // Local timestamp for management.
 
             this.message = "";
+            this.fragments = [];
             this.emojis = [];
 
             this.username = "DUMMY_USER";
@@ -805,17 +806,21 @@
 
                 message.sent_at = Date.parse(messageData.time);
                 message.message = messageData.text;
-                // replace :r+rumbleemoji: with <img> tags
-                for (const match of message.message.matchAll(/\:([a-zA-Z0-9_\.\+\-]+)\:/g)) {
+                message.message.matchAll(/\:([a-zA-Z0-9_\.\+\-]+)\:/g).forEach((match) => {
                     const id = match[1];
                     // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}
                     if (this.emotes[id] !== undefined) {
-                        message.emojis.push([match[0], this.emotes[id], `:${id}:`]);
-                    }
-                    else {
+                        message.emojis.push(this.emotes[id]);
+                    } else {
                         this.log(`no emote for ${id}`);
                     }
-                }
+                });
+
+                // Split message body into fragments around emotes to reassemble with Askama templates.
+                // Using a capture group makes it include the matches.
+                message.fragments = message.message.split(/\:[a-zA-Z0-9_\.\+\-]+\:/);
+
+                // TODO: Fragment split probably drops non-emotes that happen to match.
 
                 message.username = user.username;
                 if (user['image.1'] !== undefined) {
@@ -1038,8 +1043,8 @@
             this.log("Video ID:", video_id);
 
             const author_url = await fetch(`https://www.youtube.com/oembed?url=http%3A//youtube.com/watch%3Fv%3D${video_id}&format=json`)
-                .then(response => response.json())
-                .then(json => json.author_url);
+                  .then(response => response.json())
+                  .then(json => json.author_url);
             this.log("Author URL:", author_url);
             this.channel = await fetch(author_url)
                 .then(response => response.text())
@@ -1057,8 +1062,8 @@
                 await response.json().then((json) => {
                     if (
                         json.continuationContents !== undefined &&
-                        json.continuationContents.liveChatContinuation !== undefined &&
-                        json.continuationContents.liveChatContinuation.actions !== undefined
+                            json.continuationContents.liveChatContinuation !== undefined &&
+                            json.continuationContents.liveChatContinuation.actions !== undefined
                     ) {
                         json.continuationContents.liveChatContinuation.actions.forEach((action) => {
                             if (action.addChatItemAction !== undefined) {

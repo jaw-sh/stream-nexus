@@ -1,26 +1,32 @@
-<div id="{{ message.id }}"
-    class="msg {{ message.get_platform_string() }} {{ message.get_badge_string() }} {{ message.get_paid_string() }}"
-    style="order: {{ message.sent_at / 1000 }}" data-paid-tier="{{ message.get_paid_tier() }}">
-    {% if message.is_premium() %}
-    <div class="msg-header">
-        <div class="msg-avatar-border">
-            <span class="msg-letter">{{ message.get_letter() }}</span>
-            <img class="msg-avatar" src="{{ message.avatar }}" />
-        </div>
-        <div class="msg-container">
-            <div class="msg-user">{{ message.username|safe }}</div>
-            <div class="msg-amount">{{ message.get_paid_readable_amount() }}</div>
-        </div>
-    </div>
-    <div class="msg-text">{{ message.message }}</div>
-    {% else %}
-    <div class="msg-avatar-border">
-        <span class="msg-letter">{{ message.get_letter() }}</span>
-        <img class="msg-avatar" src="{{ message.avatar }}" />
-    </div>
-    <div class="msg-container">
-        <div class="msg-user">{{ message.username|safe }}</div>
-        <div class="msg-text">{{ message.message }}</div>
-    </div>
-    {% endif %}
+<div id="{{ message.id }}" class="msg {{ message.get_platform_string() }} {{ message.get_badge_string() }} {{ message.get_paid_string() }}" style="order: {{ message.sent_at / 1000 }}" data-paid-tier="{{ message.get_paid_tier() }}">
+	{% if message.is_premium() %}
+	<div class="msg-header">
+		<div class="msg-avatar-border">
+			<span class="msg-letter">{{ message.get_letter() }}</span>
+			<img class="msg-avatar" src="{{ message.avatar }}" />
+		</div>
+		<div class="msg-container">
+			<div class="msg-user">{{ message.username|safe }}</div>
+			<div class="msg-amount">{{ message.get_paid_readable_amount() }}</div>
+		</div>
+	</div>
+	<div class="msg-text">{{ message.message|e }}</div>
+	{% else %}
+	<div class="msg-avatar-border">
+		<span class="msg-letter">{{ message.get_letter() }}</span>
+		<img class="msg-avatar" src="{{ message.avatar }}" />
+	</div>
+	<div class="msg-container">
+		<div class="msg-user">{{ message.username|safe }}</div>
+		<!-- TODO: Move to macro for reuse above. -->
+		<div class="msg-text">
+			{% for f in message.fragments %}
+			{{ f }}
+			{% if loop.index0 < message.emojis.len() %}
+			<img class="emoji" src="{{ message.emojis[loop.index0] }}" data-emoji="" alt="" />
+			{% endif %}
+			{% endfor %}
+		</div>
+	</div>
+	{% endif %}
 </div>

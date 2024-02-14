@@ -14,10 +14,10 @@ pub struct Connection {
 
 /// Define HTTP actor
 pub struct ChatServer {
-    pub clients: HashMap<usize, Connection>,
     pub chat_messages: HashMap<Uuid, ChatMessage>,
-    pub paid_messages: Vec<Uuid>,
+    pub clients: HashMap<usize, Connection>,
     pub exchange_rates: ExchangeRates,
+    pub paid_messages: Vec<Uuid>,
     pub viewer_counts: HashMap<String, usize>,
 }
 
@@ -79,6 +79,7 @@ impl Handler<message::Content> for ChatServer {
 
         msg.chat_message.message = clean(&msg.chat_message.message);
 
+        /*
         // emojis = Vec<(String, String, String) where names are (find, replace, name)
         let mut replacements: HashMap<usize, String> =
             HashMap::with_capacity(msg.chat_message.emojis.len());
@@ -104,6 +105,7 @@ impl Handler<message::Content> for ChatServer {
         // Finally, set new string.
         // This stops double replacements.
         msg.chat_message.message = replacement_string;
+        */
 
         let mut chat_msg = msg.chat_message;
         let id = chat_msg.id.to_owned();

@@ -1,6 +1,7 @@
 use actix::prelude::Message as ActixMessage;
 use askama::Template;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::SystemTime;
 use uuid::Uuid;
 
@@ -16,7 +17,8 @@ pub struct Message {
     pub id: Uuid,
     pub platform: String,
     pub message: String,
-    pub emojis: Vec<(String, String, String)>,
+    pub fragments: Vec<String>,
+    pub emojis: Vec<String>,
     pub sent_at: i64,     // Display timestamp
     pub received_at: i64, // Our system received timestamp
     pub username: String,
@@ -56,9 +58,10 @@ impl Default for Message {
             .as_millis() as i64;
 
         Message {
-            id: Uuid::new_v4(),
+            id: Uuid::nil(), // Special UUID with all bits set to 0.
             platform: "NONE".to_string(),
             message: "DEFAULT_MESSAGE".to_string(),
+            fragments: Vec::new(),
             emojis: Vec::new(),
             sent_at: time,
             received_at: time,

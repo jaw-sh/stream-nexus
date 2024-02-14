@@ -28,6 +28,12 @@ struct DashboardTemplate {
     super_chats: Vec<crate::message::Message>,
 }
 
+#[derive(Template)]
+#[template(path = "overlay.html")]
+struct OverlayTemplate {
+    super_chats: Vec<crate::message::Message>,
+}
+
 #[actix_web::get("/chat")]
 pub async fn chat() -> impl Responder {
     HttpResponse::Ok()
@@ -45,6 +51,17 @@ pub async fn dashboard(req: HttpRequest) -> impl Responder {
         .expect("ChatServer missing in app data!")
         .clone();
     DashboardTemplate {
+        super_chats: chat_server.send(PaidMessages).await.unwrap(),
+    }
+}
+
+#[actix_web::get("/overlay")]
+pub async fn overlay(req: HttpRequest) -> impl Responder {
+    let chat_server = req
+        .app_data::<Addr<ChatServer>>()
+        .expect("ChatServer missing in app data!")
+        .clone();
+    OverlayTemplate {
         super_chats: chat_server.send(PaidMessages).await.unwrap(),
     }
 }

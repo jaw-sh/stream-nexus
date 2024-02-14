@@ -39,7 +39,7 @@
     'use strict';
 
     const SOCKET_URL = "ws://127.0.0.2:1350/chat.ws";
-    const DEBUG = false;
+    const DEBUG = true;
 
     //
     // Chat Message
@@ -53,6 +53,7 @@
             this.received_at = Date.now(); // Local timestamp for management.
 
             this.message = "";
+            this.emojis = [];
 
             this.username = "DUMMY_USER";
             this.avatar = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="; // Transparent pixel.
@@ -76,10 +77,12 @@
     class Seed {
         /// Channel name used as a token and in messages.
         channel = null;
-        /// UUID used for generating v5 UUIDs consistently to each platform.
-        namespace = null;
         /// Platform name used as a token and in messages.
         platform = null;
+        /// UUID used for generating v5 UUIDs consistently to each platform.
+        namespace = null;
+        /// Current live viewers.
+        viewers = 0;
 
         /// Messages waiting to be sent to the Rust backend.
         chatMessageQueue = [];
@@ -199,9 +202,10 @@
             if (ws_open && seed_ready) {
                 // Send message queue to Rust backend.
                 this.chatSocket.send(JSON.stringify({
-                    platform: this.platform,
-                    channel: this.channel,
+                    platform: `${this.platform}`,
+                    channel: `${this.channel}`,
                     messages: messages,
+                    viewers: this.viewers
                 }));
             }
             else {
@@ -211,9 +215,23 @@
             }
         }
 
+        sendSubscriptionMessage(username, months, value) {
+            const message = new ChatMessage(
+                UUID.v5(username, this.namespace),
+                this.platform,
+                this.channel
+            );
+            message.username = username;
+            message.message = `subscribed for ${months} months`;
+            message.amount = value;
+            message.currency = "USD";
+            this.sendChatMessages([message]);
+        }
+
         /// Sends live viewer counts to the Rust backend.
         sendViewerCount(count) {
-            //
+            this.log("Updating viewer count. Current viewers:", count);
+            this.viewers = count;
         }
 
         //
@@ -356,10 +374,11 @@
     // ✔️ Capture existing messages.
     // ✔️ Capture emotes.
     // ❌ Capture moderator actions.
-    // ❌ Capture view counts.
+    // ✔️ Capture view counts.
     //
     class Kick extends Seed {
         channel_id = null;
+        livestream_id = null;
 
         constructor() {
             const namespace = "6efe7271-da75-4c2f-93fc-ddf37d02b8a9";
@@ -370,7 +389,11 @@
         }
 
         async fetchChatHistory() {
-            this.channel_id = await fetch(`https://kick.com/api/v2/channels/${this.channel}`).then(response => response.json()).then(data => data.id);
+            // this can probably be offloaded to XHR requests.
+            const channel_info = await fetch(`https://kick.com/api/v2/channels/${this.channel}`).then(response => response.json());
+            this.channel_id = channel_info.id;
+            this.livestream_id = channel_info.livestream?.id;
+
             fetch(`https://kick.com/api/v2/channels/${this.channel_id}/messages`)
                 .then(response => response.json())
                 .then(json => {
@@ -397,9 +420,9 @@
             // Emotes are supplied as bbcode: [emote:37221:EZ]
             // Image file found at: https://files.kick.com/emotes/37221/fullsize
             // <img data-v-31c262c8="" data-emote-name="EZ" data-emote-id="37221" src="https://files.kick.com/emotes/37221/fullsize" alt="EZ" class="chat-emote">
-            message.message.replace(/\[emote:(\d+):([^\]]+)\]/g, (match, id, name) => {
-                message.message = message.message.replace(match, `<img class="emote" data-emote="${name}" src="https://files.kick.com/emotes/${id}/fullsize" alt="${name}" />`);
-            });
+            for (const match of message.message.matchAll(/\[emote:(\d+):([^\]]+)\]/g)) {
+                message.emojis.push([match[0], `https://files.kick.com/emotes/${match[1]}/fullsize`, match[2]]);
+            }
 
             json.sender.identity.badges.forEach((badge) => {
                 switch (badge.type) {
@@ -438,17 +461,61 @@
             }
 
             switch (json.event) {
+                //{"event":"App\\Events\\ChatMessageEvent","data":"{â€¦}","channel":"chatrooms.35535.v2"}
                 case "App\\Events\\ChatMessageEvent":
-                    //{"event":"App\\\\Events\\\\ChatMessageEvent","data":"{â€¦}","channel":"chatrooms.35535.v2"}
                     this.receiveChatMessage(JSON.parse(json.data));
                     break;
-                case "App\\Events\\UserBannedEvent":
-                    // {"event":"App\\Events\\UserBannedEvent","data":"{\"id\":\"a3aadb10-22ae-4081-ba8f-46bb9a6c89ff\",\"user\":{\"id\":25556531,\"username\":\"JohnsonAndJohnson1\",\"slug\":\"johnsonandjohnson1\"},\"banned_by\":{\"id\":0,\"username\":\"covid1942\",\"slug\":\"covid1942\"}}","channel":"chatrooms.2507974.v2"}
+
+                // {"event":"App\\Events\\GiftedSubscriptionsEvent","data":"{\"chatroom_id\":2507974,\"gifted_usernames\":[\"bigboss_23\"],\"gifter_username\":\"court\"}","channel":"chatrooms.2507974.v2"}
+                case "App\\Events\\GiftedSubscriptionsEvent":
                     break;
+                // {"event":"App\\Events\\GiftsLeaderboardUpdated","data":"{\"channel\":{\"id\":2515504,\"user_id\":2570626,\"slug\":\"bossmanjack\",\"is_banned\":false,\"playback_url\":\"https:\\/\\/fa723fc1b171.us-west-2.playback.live-video.net\\/api\\/video\\/v1\\/us-west-2.196233775518.channel.oliV5X2XFvWn.m3u8\",\"name_updated_at\":null,\"vod_enabled\":true,\"subscription_enabled\":true,\"can_host\":true,\"chatroom\":{\"id\":2507974,\"chatable_type\":\"App\\\\Models\\\\Channel\",\"channel_id\":2515504,\"created_at\":\"2023-03-31T21:25:27.000000Z\",\"updated_at\":\"2024-02-06T05:35:31.000000Z\",\"chat_mode_old\":\"public\",\"chat_mode\":\"public\",\"slow_mode\":false,\"chatable_id\":2515504,\"followers_mode\":true,\"subscribers_mode\":false,\"emotes_mode\":false,\"message_interval\":6,\"following_min_duration\":180}},\"leaderboard\":[{\"user_id\":21118649,\"username\":\"feepsyy\",\"quantity\":401},{\"user_id\":278737,\"username\":\"SIGNALBOOT\",\"quantity\":392},{\"user_id\":634058,\"username\":\"diddy11\",\"quantity\":266},{\"user_id\":22,\"username\":\"Eddie\",\"quantity\":180},{\"user_id\":17038949,\"username\":\"buttgrabbin\",\"quantity\":166},{\"user_id\":18409771,\"username\":\"RambleGamble\",\"quantity\":145},{\"user_id\":61177,\"username\":\"court\",\"quantity\":142},{\"user_id\":14059354,\"username\":\"Bshirley\",\"quantity\":122},{\"user_id\":2698,\"username\":\"Drake\",\"quantity\":100},{\"user_id\":10399,\"username\":\"TheManRand\",\"quantity\":72}],\"weekly_leaderboard\":[{\"user_id\":26382996,\"username\":\"doubledub2001\",\"quantity\":11},{\"user_id\":26491265,\"username\":\"dr0ptacular\",\"quantity\":11},{\"user_id\":27202375,\"username\":\"DreDre111\",\"quantity\":10},{\"user_id\":36056,\"username\":\"Scuffed\",\"quantity\":7},{\"user_id\":5556104,\"username\":\"SausageGravy\",\"quantity\":6},{\"user_id\":3685974,\"username\":\"Botaccount\",\"quantity\":5},{\"user_id\":27202627,\"username\":\"DopeSoap\",\"quantity\":5},{\"user_id\":4641706,\"username\":\"Sweetsfeature\",\"quantity\":4},{\"user_id\":803074,\"username\":\"livenationwide\",\"quantity\":3},{\"user_id\":14059354,\"username\":\"Bshirley\",\"quantity\":3}],\"monthly_leaderboard\":[{\"user_id\":61177,\"username\":\"court\",\"quantity\":73},{\"user_id\":26491265,\"username\":\"dr0ptacular\",\"quantity\":37},{\"user_id\":23522308,\"username\":\"s7eezyy\",\"quantity\":24},{\"user_id\":26878626,\"username\":\"JuiceWorld420\",\"quantity\":20},{\"user_id\":9759163,\"username\":\"KoopaTroopaZ\",\"quantity\":20},{\"user_id\":26379129,\"username\":\"Bramstammer\",\"quantity\":14},{\"user_id\":26382996,\"username\":\"doubledub2001\",\"quantity\":12},{\"user_id\":5556104,\"username\":\"SausageGravy\",\"quantity\":11},{\"user_id\":17038949,\"username\":\"buttgrabbin\",\"quantity\":10},{\"user_id\":25663663,\"username\":\"Chaissxn\",\"quantity\":10}],\"gifter_id\":61177,\"gifted_quantity\":1}","channel":"channel.2515504"}
+                case "App\\Events\\GiftsLeaderboardUpdated":
+                    break;
+                // {"event":"App\\Events\\LuckyUsersWhoGotGiftSubscriptionsEvent","data":"{\"channel\":{\"id\":2515504,\"user_id\":2570626,\"slug\":\"bossmanjack\",\"is_banned\":false,\"playback_url\":\"https:\\/\\/fa723fc1b171.us-west-2.playback.live-video.net\\/api\\/video\\/v1\\/us-west-2.196233775518.channel.oliV5X2XFvWn.m3u8\",\"name_updated_at\":null,\"vod_enabled\":true,\"subscription_enabled\":true,\"can_host\":true,\"chatroom\":{\"id\":2507974,\"chatable_type\":\"App\\\\Models\\\\Channel\",\"channel_id\":2515504,\"created_at\":\"2023-03-31T21:25:27.000000Z\",\"updated_at\":\"2024-02-06T05:35:31.000000Z\",\"chat_mode_old\":\"public\",\"chat_mode\":\"public\",\"slow_mode\":false,\"chatable_id\":2515504,\"followers_mode\":true,\"subscribers_mode\":false,\"emotes_mode\":false,\"message_interval\":6,\"following_min_duration\":180}},\"usernames\":[\"bigboss_23\"],\"gifter_username\":\"court\"}","channel":"channel.2515504"}
+                case "App\\Events\\LuckyUsersWhoGotGiftSubscriptionsEvent":
+                    break;
+
+                // {"event":"App\\Events\\SubscriptionEvent","data":"{\"chatroom_id\":2507974,\"username\":\"feepsyy\",\"months\":2}","channel":"chatrooms.2507974.v2"}
+                case "App\\Events\\SubscriptionEvent":
+                    break;
+                // {"event":"App\\Events\\ChannelSubscriptionEvent","data":"{\"user_ids\":[21118649],\"username\":\"feepsyy\",\"channel_id\":2515504}","channel":"channel.2515504"}
+                case "App\\Events\\ChannelSubscriptionEvent":
+                    break;
+
+                // {"event":"App\\Events\\UserBannedEvent","data":"{\"id\":\"a3aadb10-22ae-4081-ba8f-46bb9a6c89ff\",\"user\":{\"id\":25556531,\"username\":\"JohnsonAndJohnson1\",\"slug\":\"johnsonandjohnson1\"},\"banned_by\":{\"id\":0,\"username\":\"covid1942\",\"slug\":\"covid1942\"}}","channel":"chatrooms.2507974.v2"}
+                case "App\\Events\\UserBannedEvent":
+                    break;
+                // {"event":"App\\Events\\UserUnbannedEvent","data":"{\"id\":\"70e7e789-0b5e-498f-b475-ad6cd148abde\",\"user\":{\"id\":152392,\"username\":\"symbaz\",\"slug\":\"symbaz\"},\"unbanned_by\":{\"id\":9865,\"username\":\"gazdemic\",\"slug\":\"gazdemic\"}}","channel":"chatrooms.2507974.v2"}
+                case "App\\Events\\UserUnbannedEvent":
+                    break;
+
+                // {"event":"App\\Events\\PinnedMessageCreatedEvent","data":"{\"message\":{\"id\":\"c898642d-5287-44d3-a3f6-bb196319ae96\",\"chatroom_id\":2507974,\"content\":\"0x634Bc72f1729115b743de6aA5dEA3260A5d4D7A9\",\"type\":\"message\",\"created_at\":\"2024-02-06T21:24:31+00:00\",\"sender\":{\"id\":245024,\"username\":\"Kevman95\",\"slug\":\"kevman95\",\"identity\":{\"color\":\"#31D6C2\",\"badges\":[{\"type\":\"subscriber\",\"text\":\"Subscriber\",\"count\":1}]}},\"metadata\":null},\"duration\":\"1200\"}","channel":"chatrooms.2507974.v2"}
+                case "App\\Events\\PinnedMessageCreatedEvent":
+                    break;
+                // {"event":"App\\Events\\PinnedMessageDeletedEvent","data":"[]","channel":"chatrooms.2507974.v2"}
+                case "App\\Events\\PinnedMessageDeletedEvent":
+                    break;
+
+                // {"event":"App\\Events\\LivestreamUpdated","data":"{\"livestream\":{\"id\":22976949,\"slug\":\"99850629-55-start\",\"channel_id\":2515504,\"created_at\":\"2024-02-06 19:10:40\",\"session_title\":\"$55 start\",\"is_live\":true,\"risk_level_id\":null,\"start_time\":\"2024-02-06 19:10:37\",\"source\":null,\"twitch_channel\":null,\"duration\":0,\"language\":\"English\",\"is_mature\":true,\"viewer_count\":949,\"category\":{\"id\":28,\"category_id\":4,\"name\":\"Slots & Casino\",\"slug\":\"slots\",\"tags\":[\"Gambling\"],\"description\":null,\"deleted_at\":null,\"viewers\":30897,\"banner\":\"https:\\/\\/files.kick.com\\/images\\/subcategories\\/28\\/banner\\/ca01a05f-f807-4fbf-8794-3d547b1bb7a6\",\"category\":{\"id\":4,\"name\":\"Gambling\",\"slug\":\"gambling\",\"icon\":\"\\ud83c\\udfb0\"}},\"categories\":[{\"id\":28,\"category_id\":4,\"name\":\"Slots & Casino\",\"slug\":\"slots\",\"tags\":[\"Gambling\"],\"description\":null,\"deleted_at\":null,\"viewers\":30897,\"banner\":\"https:\\/\\/files.kick.com\\/images\\/subcategories\\/28\\/banner\\/ca01a05f-f807-4fbf-8794-3d547b1bb7a6\",\"category\":{\"id\":4,\"name\":\"Gambling\",\"slug\":\"gambling\",\"icon\":\"\\ud83c\\udfb0\"}}]}}","channel":"private-livestream.22976949"}
+                // {"event":"App\\Events\\LiveStream\\UpdatedLiveStreamEvent","data":"{\"id\":22976949,\"slug\":\"99850629-55-start\",\"session_title\":\"$55 start\",\"created_at\":\"2024-02-06T19:10:40.000000Z\",\"language\":\"English\",\"is_mature\":true,\"viewers\":949,\"category\":{\"id\":28,\"name\":\"Slots & Casino\",\"slug\":\"slots\",\"tags\":[\"Gambling\"],\"parent_category\":{\"id\":4,\"slug\":\"gambling\"}}}","channel":"private-livestream-updated.22976949"}
+                case "App\\Events\\LivestreamUpdated":
+                case "App\\Events\\UpdatedLiveStreamEvent":
+                    let viewers = parseInt(json.data.viewers, 10);
+                    if (!isNaN(viewers)) {
+                        this.sendViewerCount(viewers);
+                    }
+                    break;
+                // {"event":"App\\Events\\FollowersUpdated","data":"{\"followersCount\":20947,\"channel_id\":2515504,\"username\":null,\"created_at\":1707251975,\"followed\":true}","channel":"channel.2515504"}
+                case "App\\Events\\FollowersUpdated":
+                    break;
+
+                //{"event":"pusher_internal:subscription_succeeded","data":"{}","channel":"chatrooms.14693568.v2"}
+                //{"event":"pusher_internal:subscription_succeeded","data":"{}","channel":"private-userfeed.15671413"}
+                //{"event":"pusher_internal:subscription_succeeded","data":"{}","channel":"private-App.User.15671413"}
                 case "pusher_internal:subscription_succeeded":
-                    //{"event":"pusher_internal:subscription_succeeded","data":"{}","channel":"chatrooms.14693568.v2"}
-                    //{"event":"pusher_internal:subscription_succeeded","data":"{}","channel":"private-userfeed.15671413"}
-                    //{"event":"pusher_internal:subscription_succeeded","data":"{}","channel":"private-App.User.15671413"}
+                    break;
+                case "pusher:connection_established":
                     break;
                 case "pusher:pong":
                     break;
@@ -484,9 +551,47 @@
             if (url.startsWith("https://kick.com/api/v2/messages/send/")) {
                 xhr.addEventListener("readystatechange", (event) => this.onXhrSendMessageReadyStateChange(xhr, event));
             }
+            else if (url.startsWith("https://kick.com/api/v1/channels/")) {
+                xhr.addEventListener("readystatechange", (event) => this.onXhrChannelReadyStateChange(xhr, event));
+            }
+            else if (url.startsWith("https://kick.com/current-viewers")) {
+                xhr.addEventListener("readystatechange", (event) => this.onXhrViewersReadyStateChange(xhr, event));
+            }
+            else if (url.match(/https:\/\/kick\.com\/api\/v2\/channels\/.+\/livestream/) !== null) {
+                xhr.addEventListener("readystatechange", (event) => this.onXhrLivestreamReadyStateChange(xhr, event));
+            }
         }
 
-        /// After sending message, receive JSON for new message. 
+        /// Initial channel information.
+        onXhrChannelReadyStateChange(xhr, event) {
+            if (xhr.readyState !== XMLHttpRequest.DONE) {
+                return;
+            }
+
+            const json = JSON.parse(xhr.responseText);
+            // This response has a ton of data.
+            // Notable: id, livestream:{is_live,viewers},verified:{id,channel_id}
+            const viewers = parseInt(json.livestream?.viewers, 10);
+            if (!isNaN(viewers)) {
+                this.sendViewerCount(viewers);
+            }
+        }
+
+        // New livestream state
+        onXhrLivestreamReadyStateChange(xhr, event) {
+            if (xhr.readyState !== XMLHttpRequest.DONE) {
+                return;
+            }
+
+            //{"data":{"id":23050089,"slug":"24043393-3000-subs-3000-giveaway","session_title":"3000 Subs = $3,000 Giveaway","created_at":"2024-02-08T02:07:41.000000Z","language":"English","is_mature":true,"viewers":0,"category":{"id":28,"name":"Slots & Casino","slug":"slots","tags":["Gambling"],"parent_category":{"id":4,"slug":"gambling"}},"playback_url":"https:\/\/fa723fc1b171.us-west-2.playback.live-video.net\/api\/video\/v1\/us-west-2.196233775518.channel.oliV5X2XFvWn.m3u8?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzM4NCJ9.eyJhd3M6Y2hhbm5lbC1hcm4iOiJhcm46YXdzOml2czp1cy13ZXN0LTI6MTk2MjMzNzc1NTE4OmNoYW5uZWwvb2xpVjVYMlhGdlduIiwiYXdzOmFjY2Vzcy1jb250cm9sLWFsbG93LW9yaWdpbiI6Imh0dHBzOi8va2ljay5jb20saHR0cHM6Ly9wbGF5ZXIua2ljay5jb20saHR0cHM6Ly9hZG1pbi5raWNrLmNvbSxodHRwczovL3d3dy5nc3RhdGljLmNvbSIsImF3czpzdHJpY3Qtb3JpZ2luLWVuZm9yY2VtZW50IjpmYWxzZSwiZXhwIjoxNzA3MzYxNjYyfQ.6OGQEGhnL--MKRHFkm72_ehVSuS5SM_ZpGdfAm-qZAS2R0nfh4pRoB399lSmahRd0FZVQd4_V05S4RwTPiGmcxAe82sL3KIQ9ZzoVYaS75Xu-swKEJrX-uFeoBmts2h_","thumbnail":{"src":"https:\/\/images.kick.com\/video_thumbnails\/oliV5X2XFvWn\/afEJHdmeKhoj\/720.webp","srcset":"https:\/\/images.kick.com\/video_thumbnails\/oliV5X2XFvWn\/afEJHdmeKhoj\/1080.webp 1920w, https:\/\/images.kick.com\/video_thumbnails\/oliV5X2XFvWn\/afEJHdmeKhoj\/720.webp 1280w, https:\/\/images.kick.com\/video_thumbnails\/oliV5X2XFvWn\/afEJHdmeKhoj\/360.webp 480w, https:\/\/images.kick.com\/video_thumbnails\/oliV5X2XFvWn\/afEJHdmeKhoj\/160.webp 284w, https:\/\/images.kick.com\/video_thumbnails\/oliV5X2XFvWn\/afEJHdmeKhoj\/480.webp 640w"}}}
+
+            const json = JSON.parse(xhr.responseText);
+            if (json.data?.id !== undefined) {
+                this.livestream_id = json.data.id;
+            }
+        }
+
+        /// After sending message, receive JSON for new message.
         onXhrSendMessageReadyStateChange(xhr, event) {
             if (xhr.readyState !== XMLHttpRequest.DONE) {
                 return;
@@ -503,6 +608,25 @@
                 this.receiveChatMessage(json.data);
             }
         }
+
+        /// After fetching viewer count.
+        onXhrViewersReadyStateChange(xhr, event) {
+            if (xhr.readyState !== XMLHttpRequest.DONE) {
+                return;
+            }
+            if (this.channel_id === null) {
+                this.warn("XHR received viewers with no channel ID.");
+                return;
+            }
+
+            const json = JSON.parse(xhr.responseText);
+            for (const channel of json) {
+                if (channel.livestream_id === this.livestream_id) {
+                    this.sendViewerCount(channel.viewers);
+                    return;
+                }
+            }
+        }
     }
 
 
@@ -512,16 +636,41 @@
     // ✔️ Capture new messages.
     // ✔️ Capture sent messages.
     // ✔️ Capture existing messages.
-    // ✔️ Capture emotes.
+    // ❌ Capture emotes.
     // ❌ Capture moderator actions.
     // ✔️ Capture view counts.
-    //
+    // ❌ Odysee: Stickers, images.
+    // 
     class Odysee extends Seed {
+        emojis = [];
+
         constructor() {
             const namespace = "d80f03bf-d30a-48e9-9e9f-81616366eefd";
             const platform = "Odysee";
             const channel = window.location.href.split('/').filter(x => x).at(-2);;
             super(namespace, platform, channel);
+        }
+
+        // Identify all emojis.
+        onDocumentReady(event) {
+            this.debug("Document ready.");
+            // <button title=":confused_2:" aria-label=":confused_2:" class="button button--alt button--file-action" type="button">
+            //   <span class="button__content">
+            //     <img src="https://static.odycdn.com/emoticons/48%20px/confused%402x.png" loading="lazy">
+            //   </span>
+            // </button>
+            for (const button of document.querySelectorAll(".button.button--alt.button--file-action")) {
+                const emoji = button.title;
+                const url = button.querySelector("img")?.src;
+                if (emoji !== undefined && url !== undefined) {
+                    this.emojis[emoji] = url;
+                }
+                else {
+                    this.warn("Unknown emoji button.", button);
+                }
+            }
+
+            this.debug("Emojis found.", this.emojis.length);
         }
 
         receiveChatMessages(json) {
@@ -586,7 +735,7 @@
                     this.receiveChatMessages([json.data.comment]);
                     break;
                 case "removed":
-                    //{"type":"removed","data":{"comment":{"channel_id":"6956205bc194579e1a7c134e62355b80bf175843","channel_name":"@TheRedBaron","channel_url":"lbry://@TheRedBaron#6956205bc194579e1a7c134e62355b80bf175843","claim_id":"d826937ad9bf3b7991eada5034c4612389583bc1","comment":"@mati:c Yo, Cool stream the other night btw","comment_id":"be44038f7905fb006c25beecb89818f54064d476234c7f637241eab40c48526f","currency":"","is_fiat":false,"is_hidden":false,"is_pinned":false,"is_protected":false,"signature":"6e839ae4378de454de96d597332ff05ad09133348bbd1e77d7b055c184ba34bd609976e18968fa537a49078eeb8bef3a9243211ba9ca5ed345603687945ab891","signing_ts":"1703974695","support_amount":0,"timestamp":1703974696}}}	
+                    //{"type":"removed","data":{"comment":{"channel_id":"6956205bc194579e1a7c134e62355b80bf175843","channel_name":"@TheRedBaron","channel_url":"lbry://@TheRedBaron#6956205bc194579e1a7c134e62355b80bf175843","claim_id":"d826937ad9bf3b7991eada5034c4612389583bc1","comment":"@mati:c Yo, Cool stream the other night btw","comment_id":"be44038f7905fb006c25beecb89818f54064d476234c7f637241eab40c48526f","currency":"","is_fiat":false,"is_hidden":false,"is_pinned":false,"is_protected":false,"signature":"6e839ae4378de454de96d597332ff05ad09133348bbd1e77d7b055c184ba34bd609976e18968fa537a49078eeb8bef3a9243211ba9ca5ed345603687945ab891","signing_ts":"1703974695","support_amount":0,"timestamp":1703974696}}}
                     break;
                 case "viewers":
                     this.sendViewerCount(json.data.connected);
@@ -607,7 +756,7 @@
     // ✔️ Capture existing messages.
     // ✔️ Capture emotes.
     // ❌ Capture moderator actions.
-    // ❌ Capture view counts.
+    // ✔️ Capture view counts.
     //
     class Rumble extends Seed {
         // Rumble emotes must be sideloaded from another request.
@@ -655,15 +804,18 @@
                 }
 
                 message.sent_at = Date.parse(messageData.time);
+                message.message = messageData.text;
                 // replace :r+rumbleemoji: with <img> tags
-                message.message = messageData.text.replace(/\:([a-zA-Z0-9_.-]+)\:/g, (match, id) => {
-                    // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}	
+                for (const match of message.message.matchAll(/\:([a-zA-Z0-9_\.\+\-]+)\:/g)) {
+                    const id = match[1];
+                    // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}
                     if (this.emotes[id] !== undefined) {
-                        return `<img class="emoji" data-emote="${id}" src="${this.emotes[id]}" alt="${id}" />`;
+                        message.emojis.push([match[0], this.emotes[id], `:${id}:`]);
                     }
-                    this.log(`no emote for ${id}`);
-                    return match;
-                });
+                    else {
+                        this.log(`no emote for ${id}`);
+                    }
+                }
 
                 message.username = user.username;
                 if (user['image.1'] !== undefined) {
@@ -693,7 +845,7 @@
                                 message.is_verified = true;
                                 break;
                             default:
-                                this.log(`Unknown badge type: ${badge.type}`);
+                                this.log(`Unknown badge type: ${badge.type} `);
                                 break;
                         }
                     });
@@ -750,6 +902,36 @@
                 });
             }
         }
+
+        onXhrOpen(xhr, method, url, async, user, password) {
+            if (url.startsWith("https://wn0.rumble.com/service.php")) {
+                xhr.addEventListener("readystatechange", (event) => this.onXhrServiceReadyStateChange(xhr, event));
+            }
+        }
+
+        onXhrServiceReadyStateChange(xhr, event) {
+            if (xhr.readyState !== XMLHttpRequest.DONE) {
+                return;
+            }
+
+            // This one request returns a lot of different kinds of data. This is the one we want.
+            // {
+            //     "data": {
+            //         "video_id": 226626835,
+            //         "num_watching_now": 6920,
+            //         "viewer_count": 6920,
+            //         "livestream_status": 2,
+            //         "scheduled_on_ts": null
+            //     }
+            // }
+            if (xhr.responseType === "json") {
+                const json = xhr.response;
+                const viewers = parseInt(json?.data?.viewer_count || json?.data?.num_watching_now, 10);
+                if (!isNaN(viewers)) {
+                    this.sendViewerCount(viewers);
+                }
+            }
+        }
     }
 
     //
@@ -798,9 +980,7 @@
     //
     // YouTube
     //
-    // ✔️ Capture new messages.
-    // ✔️ Capture sent messages.
-    // ❌ Capture existing messages.
+    // ✔️ Capture new messages.{"event":"App\\Events\\UserBannedEvent","data":"{\"id\":\"0c50401f-adb4-4acf-929a-b04176900b99\",\"user\":{\"id\":27215345,\"username\":\"GoonAllday420\",\"slug\":\"goonallday420\"},\"banned_by\":{\"id\":0,\"username\":\"dispensary\",\"slug\":\"dispensary\"}}","channel":"chatrooms.2507974.v2"}
     // ✔️ Capture emotes.
     // ❌ Capture moderator actions.
     // ❌ Capture view counts.
@@ -829,7 +1009,7 @@
                         message.message += run.text;
                     }
                     else if (run.emoji !== undefined) {
-                        message.message += `<img class="emoji" data-emote="${run.emoji.emojiId}" src="${run.emoji.image.thumbnails.at(-1).url}" alt="${run.emoji.emojiId}" />`;
+                        message.message += `<img class="emoji" data-emote="${run.emoji.emojiId}" src="${run.emoji.image.thumbnails.at(-1).url}" alt="${run.emoji.emojiId}" /> `;
                     }
                     else {
                         this.log("[SNEED::YouTube] Unknown run.", run);
@@ -960,13 +1140,20 @@
                         }
                     }
 
-                    this.log("[SNEED::X] Unknown message type:", data);
+                    this.debug("Unknown message type:", data);
                     break;
-                // viewer counts
+                // ???
                 case 2:
                     const payload2 = JSON.parse(data.payload);
-                    this.sendViewerCount(payload2.body.occupancy);
+                    if (payload2.kind == 4) {
+                        this.parseWebSocketMessage(payload2);
+                    }
                     break;
+                case 4:
+                    const payload4 = JSON.parse(data.body);
+                    if (payload4.occupancy !== undefined) {
+                        this.sendViewerCount(payload4.occupancy);
+                    }
                 default:
                     break;
             }

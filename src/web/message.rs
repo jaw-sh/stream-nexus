@@ -1,5 +1,6 @@
 use crate::message::Message as ChatMessage;
 use actix::{Message, Recipient};
+use serde::{Deserialize, Serialize};
 
 /// Client hello message.
 pub struct Connect {
@@ -27,6 +28,12 @@ impl Message for Reply {
     type Result = ();
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ReplyInner {
+    pub tag: String,
+    pub message: String,
+}
+
 /// Content message.
 pub struct Content {
     pub chat_message: ChatMessage,
@@ -48,4 +55,16 @@ pub struct PaidMessages;
 
 impl Message for PaidMessages {
     type Result = Vec<ChatMessage>;
+}
+
+/// Request for view counts.
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ViewCount {
+    pub platform: String,
+    //pub channel: String,
+    pub viewers: usize,
+}
+
+impl Message for ViewCount {
+    type Result = ();
 }

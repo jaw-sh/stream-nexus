@@ -1,4 +1,4 @@
-const main = document.querySelector("main");
+const main = document.querySelector("#chat-messages");
 
 // Create WebSocket connection.
 let socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
@@ -21,7 +21,19 @@ const bindWebsocketEvents = () => {
     // Listen for messages
     socket.addEventListener("message", (event) => {
         const message = JSON.parse(event.data);
-        handle_message(message);
+        const data = JSON.parse(message.message);
+        switch (message.tag) {
+            case "chat_message":
+                handle_message(data);
+                break;
+            case "viewers":
+                handle_viewers(data);
+                break;
+            default:
+                console.log("Unknown message", message);
+                break;
+
+        }
     });
 
     socket.addEventListener("close", (event) => {
@@ -105,6 +117,23 @@ function handle_premium(node, message) {
             recalculate_premium_positions();
         }, time * 1000);
     }
+}
+
+window.livestream_viewers = {};
+function handle_viewers(message) {
+    let total = 0;
+    console.log("VIEWERS", message);
+
+    for (const [key, value] of Object.entries(message)) {
+        window.livestream_viewers[key] = parseInt(value, 10);
+    }
+
+    for (const [key, value] of Object.entries(window.livestream_viewers)) {
+        total += value;
+    }
+
+    total = Math.max(total, 0);
+    document.getElementById("live-totals").innerHTML = total;
 }
 
 function recalculate_premium_positions() {
@@ -293,3 +322,27 @@ function handle_command(message) {
 
     return false;
 }
+
+function set_date(dateObj) {
+    const day = dateObj.getDate();
+    const month = dateObj.toLocaleString("default", { month: "long" });
+    const year = dateObj.getFullYear();
+
+    const nthNumber = (number) => {
+        if (number > 3 && number < 21) return "th";
+        switch (number % 10) {
+            case 1:
+                return "st";
+            case 2:
+                return "nd";
+            case 3:
+                return "rd";
+            default:
+                return "th";
+        }
+    };
+
+    const date = `${month} ${day}${nthNumber(day)}, ${year}`;
+    document.getElementById("date").innerHTML = date;
+}
+set_date(new Date());

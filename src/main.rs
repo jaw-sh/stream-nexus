@@ -32,6 +32,7 @@ async fn main() -> Result<(), std::io::Error> {
             .service(web::colors)
             .service(web::chat)
             .service(web::dashboard)
+            .service(web::overlay)
             .service(web::websocket)
             .service(web::logo)
     })

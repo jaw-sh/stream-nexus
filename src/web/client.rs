@@ -136,6 +136,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatClient {
             ws::Message::Text(text) => {
                 match serde_json::from_str::<LivestreamUpdate>(&text) {
                     Ok(update) => {
+                        // Send Viewer Counts
+                        if let Some(viewers) = update.viewers {
+                            self.send_or_reply(
+                                ctx,
+                                message::ViewCount {
+                                    platform: update.platform,
+                                    //channel: update.channel.unwrap_or_default(),
+                                    viewers,
+                                },
+                            );
+                        }
+                        // Send Messages
                         if let Some(messages) = update.messages {
                             for message in messages {
                                 self.send_or_reply(

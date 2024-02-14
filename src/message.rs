@@ -16,6 +16,7 @@ pub struct Message {
     pub id: Uuid,
     pub platform: String,
     pub message: String,
+    pub emojis: Vec<(String, String, String)>,
     pub sent_at: i64,     // Display timestamp
     pub received_at: i64, // Our system received timestamp
     pub username: String,
@@ -35,8 +36,9 @@ pub struct Message {
 #[rtype(result = "()")]
 pub struct LivestreamUpdate {
     pub platform: String,
+    pub channel: Option<String>,
     pub messages: Option<Vec<Message>>,
-    pub viewers: Option<u64>,
+    pub viewers: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -57,6 +59,7 @@ impl Default for Message {
             id: Uuid::new_v4(),
             platform: "NONE".to_string(),
             message: "DEFAULT_MESSAGE".to_string(),
+            emojis: Vec::new(),
             sent_at: time,
             received_at: time,
             username: "NO_USERNAME".to_string(),

@@ -1,0 +1,8 @@
+{% macro text() %}
+{% for f in message.fragments %}
+{{ f|e }}
+{% if loop.index0 < message.emojis.len() %}
+<img class="emoji" src="{{ message.emojis[loop.index0]|e }}" data-emoji="" alt="" />
+{% endif %}
+{% endfor %}
+{% endmacro %}

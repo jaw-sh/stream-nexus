@@ -8,9 +8,11 @@ pub use message::PaidMessages;
 pub use server::ChatServer;
 
 use actix::Addr;
+use actix_web::HttpResponseBuilder;
 use actix_web::{http::header, web, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
 use askama_actix::Template;
+use askama_actix::TemplateToResponse;
 use std::time::{Duration, Instant};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
@@ -26,9 +28,20 @@ struct DashboardTemplate {
     super_chats: Vec<crate::message::Message>,
 }
 
+#[derive(Template)]
+#[template(path = "overlay.html")]
+struct OverlayTemplate {
+    super_chats: Vec<crate::message::Message>,
+}
+
 #[actix_web::get("/chat")]
 pub async fn chat() -> impl Responder {
-    ChatTemplate {}
+    HttpResponse::Ok()
+        .insert_header((
+            header::CONTENT_SECURITY_POLICY,
+            "default-src 'self'; img-src * 'self' data:; font-src *; style-src * 'unsafe-inline';",
+        ))
+        .body(ChatTemplate {}.to_string())
 }
 
 #[actix_web::get("/dashboard")]
@@ -38,6 +51,17 @@ pub async fn dashboard(req: HttpRequest) -> impl Responder {
         .expect("ChatServer missing in app data!")
         .clone();
     DashboardTemplate {
+        super_chats: chat_server.send(PaidMessages).await.unwrap(),
+    }
+}
+
+#[actix_web::get("/overlay")]
+pub async fn overlay(req: HttpRequest) -> impl Responder {
+    let chat_server = req
+        .app_data::<Addr<ChatServer>>()
+        .expect("ChatServer missing in app data!")
+        .clone();
+    OverlayTemplate {
         super_chats: chat_server.send(PaidMessages).await.unwrap(),
     }
 }

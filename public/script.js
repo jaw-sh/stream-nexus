@@ -1,36 +1,53 @@
-const main = document.querySelector("main");
+const main = document.querySelector("#chat-messages");
 
 // Create WebSocket connection.
-const socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
+let socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
 const reconnect = () => {
     // check if socket is connected
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
         return true;
     }
     // attempt to connect
-    const socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
+    socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
+    bindWebsocketEvents(socket);
 };
 
 // Connection opened
-socket.addEventListener("open", (event) => {
-    console.log("[SNEED] Connection established.");
-});
+const bindWebsocketEvents = () => {
+    socket.addEventListener("open", (event) => {
+        console.log("[SNEED] Connection established.");
+    });
 
-// Listen for messages
-socket.addEventListener("message", (event) => {
-    const message = JSON.parse(event.data);
-    handle_message(message);
-});
+    // Listen for messages
+    socket.addEventListener("message", (event) => {
+        const message = JSON.parse(event.data);
+        const data = JSON.parse(message.message);
+        switch (message.tag) {
+            case "chat_message":
+                handle_message(data);
+                break;
+            case "viewers":
+                handle_viewers(data);
+                break;
+            default:
+                console.log("Unknown message", message);
+                break;
 
-socket.addEventListener("close", (event) => {
-    console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
-    setTimeout(function () { reconnect(); }, 3000);
-});
+        }
+    });
 
-socket.addEventListener("error", (event) => {
-    socket.close();
-    setTimeout(function () { reconnect(); }, 3000);
-});
+    socket.addEventListener("close", (event) => {
+        console.log("[SNEED] Socket has closed. Attempting reconnect.", event.reason);
+        setTimeout(function () { reconnect(); }, 1000);
+    });
+
+    socket.addEventListener("error", (event) => {
+        socket.close();
+        setTimeout(function () { reconnect(); }, 1000);
+    });
+};
+
+bindWebsocketEvents(socket);
 
 function handle_emote(node, message) {
     const innerEl = node.getElementsByClassName("msg-text")[0];
@@ -100,6 +117,23 @@ function handle_premium(node, message) {
             recalculate_premium_positions();
         }, time * 1000);
     }
+}
+
+window.livestream_viewers = {};
+function handle_viewers(message) {
+    let total = 0;
+    console.log("VIEWERS", message);
+
+    for (const [key, value] of Object.entries(message)) {
+        window.livestream_viewers[key] = parseInt(value, 10);
+    }
+
+    for (const [key, value] of Object.entries(window.livestream_viewers)) {
+        total += value;
+    }
+
+    total = Math.max(total, 0);
+    document.getElementById("live-totals").innerHTML = total;
 }
 
 function recalculate_premium_positions() {
@@ -288,3 +322,27 @@ function handle_command(message) {
 
     return false;
 }
+
+function set_date(dateObj) {
+    const day = dateObj.getDate();
+    const month = dateObj.toLocaleString("default", { month: "long" });
+    const year = dateObj.getFullYear();
+
+    const nthNumber = (number) => {
+        if (number > 3 && number < 21) return "th";
+        switch (number % 10) {
+            case 1:
+                return "st";
+            case 2:
+                return "nd";
+            case 3:
+                return "rd";
+            default:
+                return "th";
+        }
+    };
+
+    const date = `${month} ${day}${nthNumber(day)}, ${year}`;
+    document.getElementById("date").innerHTML = date;
+}
+set_date(new Date());

@@ -12,7 +12,7 @@
             <div class="msg-amount">{{ message.get_paid_readable_amount() }}</div>
         </div>
     </div>
-    <div class="msg-text">{{ message.message|safe }}</div>
+    <div class="msg-text">{{ message.message }}</div>
     {% else %}
     <div class="msg-avatar-border">
         <span class="msg-letter">{{ message.get_letter() }}</span>
@@ -20,7 +20,7 @@
     </div>
     <div class="msg-container">
         <div class="msg-user">{{ message.username|safe }}</div>
-        <div class="msg-text">{{ message.message|safe }}</div>
+        <div class="msg-text">{{ message.message }}</div>
     </div>
     {% endif %}
 </div>

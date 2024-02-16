@@ -797,6 +797,48 @@
         //   user-type=
         // :dragogamer48!dragogamer48@dragogamer48.tmi.twitch.tv PRIVMSG #illojuan
         // :KEK
+
+        // https://dev.twitch.tv/docs/irc/tags/
+        parseIrcMessageToJson(message) {
+            // const test = {
+            //     channel: "#ourchickenlife",
+            //     command: "PRIVMSG",
+            //     author: "Username",
+            //     message: "Hello, world.",
+            //     meta: { key: "value" }
+            // };
+
+            const json = {};
+            const parts = message.split(" :");
+
+            if (parts[0][0] === '@') {
+                json.meta = {};
+                const pairs = message.split(";");
+                pairs.forEach((pair) => {
+                    const [key, value] = part.split("=");
+                    json.meta[key.trim()] = value.trim();
+                });
+            }
+
+            return json;
+        }
+
+
+        // Called when a websocket receives a message.
+        onWebSocketMessage(ws, event) {
+            this.parseWebSocketMessage(data);
+        }
+
+        // Called when a websocket sends a message.
+        onWebSocketSend(ws, message) {
+            // @client-nonce=alphanumericstring PRIVMSG #ourchickenlife :chickem
+
+            this.parseWebSocketMessage(data);
+        }
+        // Room Joins
+        // @badge-info=;badges=bits/100;color=#BE2E34;display-name=MadAtTheInternet;emote-sets=0,19194,1512303,300374282,1374614720,dff88e48-2d6b-4dbe-8b21-61b577987772;mod=0;subscriber=0;user-type= :tmi.twitch.tv USERSTATE #ourchickenlife @emote-only=0;followers-only=0;r9k=0;room-id=269099597;slow=0;subs-only=0 :tmi.twitch.tv ROOMSTATE #ourchickenlife	
+        // Oubound message
+
     }
 
     //
@@ -989,6 +1031,73 @@
     }
 
     //
+    // VK
+    //
+    // ❌ Capture new messages.
+    // ✔️ Capture sent messages.
+    // ❌ Capture existing messages.
+    // ❌ Capture emotes.
+    // ❌ Capture moderator actions.
+    // ❌ Capture view counts.
+    //
+    class VK extends Seed {
+        constructor() {
+            const namespace = "a59f077b-d072-41c0-976e-22c7e4ebf6f8";
+            const platform = "VK";
+            const channel = window.location.href.split('/').filter(x => x).at(-1); // Broadcast ID, not channel name.
+            super(namespace, platform, channel);
+        }
+
+        prepareChatMessages(pairs) {
+            var messages = [];
+
+            pairs.forEach((pair) => {
+                const message = new ChatMessage(pair.body.uuid, this.platform, this.channel);
+
+                message.username = pair.sender.username;
+                message.message = pair.body.body;
+                message.sent_at = pair.body.timestamp;
+                // TODO: Sender avatars not present.
+                message.avatar = pair.sender.profile_image_url ?? "https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
+                message.is_verified = pair.sender.verified ?? false;
+
+                messages.push(message);
+            });
+
+            return messages;
+        }
+
+        // {
+        //     "payload": [
+        //         0,
+        //         [
+        //             "<div class=\"mv_chat_message \" id=\"mv_chat_msg-25924859_9887\" data-msg-id=\"9887\">\n  <a class=\"mv_chat_message_author_thumb\" href=\"\/madattheinternet\" target=\"_blank\">\n    <img loading=\"lazy\" class=\"mv_chat_message_author_thumb_img\" src=\"https:\/\/sun6-23.userapi.com\/s\/v1\/if2\/pl-0Ti7w_2Q1yTTYwYaLTmVnUq0rCCizszrHJpzskeIg75nSirIKf24MvTWx6QzK47iXlWaVRdkpaeLhee76wIrr.jpg?size=50x50&quality=96&crop=8,0,248,248&ava=1\"\/>\n  <\/a>\n  <div class=\"mv_chat_message_content\">\n    <a class=\"mv_chat_message_author_name\" href=\"\/madattheinternet\" target=\"_blank\"><div class=\"mv_chat_message_author_name_text\">Dzhoshua Mun<\/div><\/a>\n    <div class=\"mv_chat_message_text\">test<\/div>\n  <\/div>\n  <div class=\"mv_chat_message_actions\"><a class=\"mv_chat_message_action\"\n  onclick=\"VideoChat.deleteMessage('-25924859_9887', '1704819918_b9150b027078ca02bb')\"\n  aria-label=\"Delete\"\n  onmouseover=\"showTooltip(this, {text:  'Delete', black: 1, shift: [0, 8, 0], center: 1})\"\n  >\n  <svg fill=\"none\" height=\"20\" viewBox=\"0 0 20 20\" width=\"20\" xmlns=\"http:\/\/www.w3.org\/2000\/svg\"><path clip-rule=\"evenodd\" d=\"M4.72 4.72c.3-.3.77-.3 1.06 0L10 8.94l4.22-4.22a.75.75 0 1 1 1.06 1.06L11.06 10l4.22 4.22a.75.75 0 1 1-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 0 1-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 0 1 0-1.06z\" fill=\"currentColor\" fill-rule=\"evenodd\"\/><\/svg>\n<\/a><\/div>\n<\/div>",
+        //             9887,
+        //             []
+        //         ]
+        //     ],
+        //     "statsMeta": {
+        //         "platform": "web2",
+        //         "st": false,
+        //         "time": 1704819918,
+        //         "hash": "qs0awBYZDkNrIqEqLNKNoEq0qTowlBb308vx3kqZoRo",
+        //         "reloadVersion": 13
+        //     },
+        //     "loaderVersion": "20829863990",
+        //     "langPack": 3,
+        //     "langVersion": "7201"
+        // }
+
+        onXhrReadyStateChange(xhr, event) {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (xhr.response.url.indexOf("act=post_comment") > 0) {
+
+                }
+            }
+        }
+    }
+
+    //
     // Seed Selection
     //
     switch (window.location.hostname) {
@@ -1003,6 +1112,9 @@
             break;
         case 'twitch':
             new Twitch;
+        case "vk.com":
+            new VK;
+            break;
         case 'www.youtube.com':
         case 'youtube.com':
             new YouTube;

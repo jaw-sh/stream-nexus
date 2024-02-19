@@ -80,13 +80,13 @@ impl Handler<message::Content> for ChatServer {
         msg.chat_message.message = clean(&msg.chat_message.message);
 
         /*
-        // emojis = Vec<(String, String, String) where names are (find, replace, name)
+        // emotes = Vec<(String, String, String) where names are (find, replace, name)
         let mut replacements: HashMap<usize, String> =
-            HashMap::with_capacity(msg.chat_message.emojis.len());
+            HashMap::with_capacity(msg.chat_message.emotes.len());
         let mut replacement_string = msg.chat_message.message.to_owned();
 
         // First, replace all instances with tokens.
-        for (find, replace, name) in &msg.chat_message.emojis {
+        for (find, replace, name) in &msg.chat_message.emotes {
             let url = clean(replace);
             let key: usize = rand::random();
             let value: String = format!(

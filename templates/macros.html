@@ -1,8 +1,16 @@
+{% macro avatar() %}
+<div class="msg-avatar-border">
+	<span class="msg-letter">{{ message.get_letter() }}</span>
+	<img class="msg-avatar" src="{{ message.avatar }}" />
+</div>
+{% endmacro %}
+
 {% macro text() %}
 {% for f in message.fragments %}
-{{ f|e }}
-{% if loop.index0 < message.emojis.len() %}
-<img class="emoji" src="{{ message.emojis[loop.index0]|e }}" data-emoji="" alt="" />
+{% if f.fm_type == "EMOTE" %}
+<img class="emoji" src="{{ f.value|e }}" data-emoji="" alt="" />
+{% else %}
+{{ f.value|e }}
 {% endif %}
 {% endfor %}
 {% endmacro %}

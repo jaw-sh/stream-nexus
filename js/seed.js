@@ -54,7 +54,7 @@
 
             this.message = "";
             this.fragments = [];
-            this.emojis = [];
+            this.emotes = [];
 
             this.username = "DUMMY_USER";
             this.avatar = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="; // Transparent pixel.
@@ -70,6 +70,21 @@
         }
 
     }
+
+    const Fragment = (type, value) => {
+        const types = {
+            EMOTE: "EMOTE",
+            TEXT: "TEXT",
+        };
+
+        if (type === null || types[type] === undefined)
+            type = types.TEXT;
+
+        return {
+            fm_type: type,
+            value
+        };
+    };
 
     //
     // Seed
@@ -422,7 +437,7 @@
             // Image file found at: https://files.kick.com/emotes/37221/fullsize
             // <img data-v-31c262c8="" data-emote-name="EZ" data-emote-id="37221" src="https://files.kick.com/emotes/37221/fullsize" alt="EZ" class="chat-emote">
             for (const match of message.message.matchAll(/\[emote:(\d+):([^\]]+)\]/g)) {
-                message.emojis.push([match[0], `https://files.kick.com/emotes/${match[1]}/fullsize`, match[2]]);
+                message.emotes.push([match[0], `https://files.kick.com/emotes/${match[1]}/fullsize`, match[2]]);
             }
 
             json.sender.identity.badges.forEach((badge) => {
@@ -643,7 +658,7 @@
     // ❌ Odysee: Stickers, images.
     // 
     class Odysee extends Seed {
-        emojis = [];
+        emotes = [];
 
         constructor() {
             const namespace = "d80f03bf-d30a-48e9-9e9f-81616366eefd";
@@ -652,7 +667,7 @@
             super(namespace, platform, channel);
         }
 
-        // Identify all emojis.
+        // Identify all emotes.
         onDocumentReady(event) {
             this.debug("Document ready.");
             // <button title=":confused_2:" aria-label=":confused_2:" class="button button--alt button--file-action" type="button">
@@ -664,14 +679,14 @@
                 const emoji = button.title;
                 const url = button.querySelector("img")?.src;
                 if (emoji !== undefined && url !== undefined) {
-                    this.emojis[emoji] = url;
+                    this.emotes[emoji] = url;
                 }
                 else {
                     this.warn("Unknown emoji button.", button);
                 }
             }
 
-            this.debug("Emojis found.", this.emojis.length);
+            this.debug("Emotes found.", this.emotes.length);
         }
 
         receiveChatMessages(json) {
@@ -773,11 +788,10 @@
         /// Fetches the channel ID from the DOM.
         onDocumentReady() {
             // Pop-out chat contains the channel ID in the URL.
+            // Otherwise, we need to find the channel ID in the DOM.
             if (window.location.href.indexOf('/chat/popup/') >= 0) {
                 this.channel = parseInt(window.location.href.split('/').filter(x => x)[4], 10);
-            }
-            // Otherwise, we need to find the channel ID in the DOM.
-            else {
+            } else {
                 // Yes, the only place in the DOM the channel ID exists is the upvote button.
                 this.channel = parseInt(document.querySelector('.rumbles-vote-pill').dataset.id, 10);
             }
@@ -806,21 +820,20 @@
 
                 message.sent_at = Date.parse(messageData.time);
                 message.message = messageData.text;
-                message.message.matchAll(/\:([a-zA-Z0-9_\.\+\-]+)\:/g).forEach((match) => {
-                    const id = match[1];
-                    // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}
-                    if (this.emotes[id] !== undefined) {
-                        message.emojis.push(this.emotes[id]);
-                    } else {
-                        this.log(`no emote for ${id}`);
-                    }
-                });
 
                 // Split message body into fragments around emotes to reassemble with Askama templates.
                 // Using a capture group makes it include the matches.
-                message.fragments = message.message.split(/\:[a-zA-Z0-9_\.\+\-]+\:/);
+                var fmSplit = message.message.split(/(\:[a-zA-Z0-9_\.\+\-]+\:)/);
+                message.fragments = fmSplit.map((fm) => {
+                    const m = fm.match(/\:([a-zA-Z0-9_\.\+\-]+)\:/);
+                    if (m != null) {
+                        const id = m[1];
+                        if (this.emotes[id] !== undefined)
+                            return Fragment("EMOTE", this.emotes[id]);
+                    }
 
-                // TODO: Fragment split probably drops non-emotes that happen to match.
+                    return Fragment("TEXT", fm);
+                });
 
                 message.username = user.username;
                 if (user['image.1'] !== undefined) {

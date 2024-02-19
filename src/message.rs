@@ -1,7 +1,6 @@
 use actix::prelude::Message as ActixMessage;
 use askama::Template;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::SystemTime;
 use uuid::Uuid;
 
@@ -11,14 +10,20 @@ struct MessageTemplate<'a> {
     message: &'a Message,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Fragment {
+    pub fm_type: String,
+    pub value: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, ActixMessage, Clone)]
 #[rtype(result = "()")]
 pub struct Message {
     pub id: Uuid,
     pub platform: String,
     pub message: String,
-    pub fragments: Vec<String>,
-    pub emojis: Vec<String>,
+    pub fragments: Vec<Fragment>,
+    pub emotes: Vec<String>,
     pub sent_at: i64,     // Display timestamp
     pub received_at: i64, // Our system received timestamp
     pub username: String,
@@ -62,7 +67,7 @@ impl Default for Message {
             platform: "NONE".to_string(),
             message: "DEFAULT_MESSAGE".to_string(),
             fragments: Vec::new(),
-            emojis: Vec::new(),
+            emotes: Vec::new(),
             sent_at: time,
             received_at: time,
             username: "NO_USERNAME".to_string(),

@@ -8,7 +8,7 @@
 {% macro text() %}
 {% for f in message.fragments %}
 {% if f.fm_type == "EMOTE" %}
-<img class="emoji" src="{{ f.value|e }}" data-emoji="" alt="" />
+<img class="emoji" src="{{ f.value|e }}" data-emoji="{{ f.id|e }}" alt="{{ f.id|e }}" />
 {% else %}
 {{ f.value|e }}
 {% endif %}

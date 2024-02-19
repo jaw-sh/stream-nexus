@@ -54,7 +54,6 @@
 
             this.message = "";
             this.fragments = [];
-            this.emotes = [];
 
             this.username = "DUMMY_USER";
             this.avatar = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="; // Transparent pixel.
@@ -71,17 +70,27 @@
 
     }
 
-    const Fragment = (type, value) => {
+    const Fragment = (value, id="", fm_type="TEXT") => {
         const types = {
             EMOTE: "EMOTE",
             TEXT: "TEXT",
         };
 
-        if (type === null || types[type] === undefined)
-            type = types.TEXT;
+        const toText = () => {
+            id = "";
+            fm_type = types.TEXT;
+        };
+
+        if (types[fm_type] === undefined)
+            toText()
+        // Make sure value for emote is a valid URL.
+        // If not, treat the value as plaintext.
+        else if (fm_type === types.EMOTE && !URL.canParse(value))
+            toText()
 
         return {
-            fm_type: type,
+            fm_type,
+            id,
             value
         };
     };
@@ -436,9 +445,14 @@
             // Emotes are supplied as bbcode: [emote:37221:EZ]
             // Image file found at: https://files.kick.com/emotes/37221/fullsize
             // <img data-v-31c262c8="" data-emote-name="EZ" data-emote-id="37221" src="https://files.kick.com/emotes/37221/fullsize" alt="EZ" class="chat-emote">
-            for (const match of message.message.matchAll(/\[emote:(\d+):([^\]]+)\]/g)) {
-                message.emotes.push([match[0], `https://files.kick.com/emotes/${match[1]}/fullsize`, match[2]]);
-            }
+            var fmSplit = message.message.split(/(\[emote:\d+:[^\]]+\])/);
+            message.fragments = fmSplit.map((fm) => {
+                const m = fm.match(/\[emote:(\d+):([^\]]+)\]/);
+                if (m !== null)
+                    return Fragment(`https://files.kick.com/emotes/${m[1]}/fullsize`, m[2], "EMOTE");
+
+                return Fragment(fm);
+            });
 
             json.sender.identity.badges.forEach((badge) => {
                 switch (badge.type) {
@@ -826,13 +840,13 @@
                 var fmSplit = message.message.split(/(\:[a-zA-Z0-9_\.\+\-]+\:)/);
                 message.fragments = fmSplit.map((fm) => {
                     const m = fm.match(/\:([a-zA-Z0-9_\.\+\-]+)\:/);
-                    if (m != null) {
+                    if (m !== null) {
                         const id = m[1];
                         if (this.emotes[id] !== undefined)
-                            return Fragment("EMOTE", this.emotes[id]);
+                            return Fragment(this.emotes[id], id, "EMOTE");
                     }
 
-                    return Fragment("TEXT", fm);
+                    return Fragment(fm);
                 });
 
                 message.username = user.username;

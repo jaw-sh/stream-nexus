@@ -13,6 +13,7 @@ struct MessageTemplate<'a> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Fragment {
     pub fm_type: String,
+    pub id: String,
     pub value: String,
 }
 
@@ -23,7 +24,6 @@ pub struct Message {
     pub platform: String,
     pub message: String,
     pub fragments: Vec<Fragment>,
-    pub emotes: Vec<String>,
     pub sent_at: i64,     // Display timestamp
     pub received_at: i64, // Our system received timestamp
     pub username: String,
@@ -67,7 +67,6 @@ impl Default for Message {
             platform: "NONE".to_string(),
             message: "DEFAULT_MESSAGE".to_string(),
             fragments: Vec::new(),
-            emotes: Vec::new(),
             sent_at: time,
             received_at: time,
             username: "NO_USERNAME".to_string(),

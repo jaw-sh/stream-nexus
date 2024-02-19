@@ -38,7 +38,7 @@
 (async function () {
     'use strict';
 
-    const SOCKET_URL = "ws://127.0.0.1:1350/chat.ws";
+    const SOCKET_URL = "ws://127.0.0.2:1350/chat.ws";
     const DEBUG = true;
 
     //

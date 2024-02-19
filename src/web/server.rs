@@ -18,6 +18,7 @@ pub struct ChatServer {
     pub clients: HashMap<usize, Connection>,
     pub exchange_rates: ExchangeRates,
     pub paid_messages: Vec<Uuid>,
+    pub platforms: HashMap<String, Uuid>,
     pub viewer_counts: HashMap<String, usize>,
 }
 
@@ -30,6 +31,32 @@ impl ChatServer {
             chat_messages: HashMap::with_capacity(100),
             paid_messages: Vec::with_capacity(100),
             exchange_rates,
+            platforms: HashMap::from([
+                (
+                    "Kick".to_string(),
+                    Uuid::from_u128(0x6efe7271da754c2f93fcddf37d02b8a9u128),
+                ),
+                (
+                    "Odysee".to_string(),
+                    Uuid::from_u128(0xd80f03bfd30a48e99e9f81616366eefdu128),
+                ),
+                (
+                    "Rumble".to_string(),
+                    Uuid::from_u128(0x5ceefcfb4aa5443abea61f8590231471u128),
+                ),
+                (
+                    "Twitch".to_string(),
+                    Uuid::from_u128(0x4a342b79e302403a99be669b5f27b152u128),
+                ),
+                (
+                    "X".to_string(),
+                    Uuid::from_u128(0x0abb36b843ab40b5be614f2c32a75890u128),
+                ),
+                (
+                    "YouTube".to_string(),
+                    Uuid::from_u128(0xfd60ac36d6b549dcaee6b0d87d130582u128),
+                ),
+            ]),
             viewer_counts: HashMap::with_capacity(100),
         }
     }
@@ -79,36 +106,21 @@ impl Handler<message::Content> for ChatServer {
 
         msg.chat_message.message = clean(&msg.chat_message.message);
 
-        /*
-        // emotes = Vec<(String, String, String) where names are (find, replace, name)
-        let mut replacements: HashMap<usize, String> =
-            HashMap::with_capacity(msg.chat_message.emotes.len());
-        let mut replacement_string = msg.chat_message.message.to_owned();
-
-        // First, replace all instances with tokens.
-        for (find, replace, name) in &msg.chat_message.emotes {
-            let url = clean(replace);
-            let key: usize = rand::random();
-            let value: String = format!(
-                "<img class=\"emoji\" src=\"{}\" data-emoji=\"{}\" alt=\"{}\" />",
-                url, name, name
-            );
-            replacement_string = replacement_string.replace(find, &format!("<{}>", key));
-            replacements.insert(key, value);
-        }
-
-        // Replace tokens with real replacements.
-        for (key, value) in replacements {
-            replacement_string = replacement_string.replace(&format!("<{}>", key), &value);
-        }
-
-        // Finally, set new string.
-        // This stops double replacements.
-        msg.chat_message.message = replacement_string;
-        */
-
         let mut chat_msg = msg.chat_message;
+
+        // Check if the userscript failed to generate a UUID.
+        if chat_msg.id.is_nil() {
+            log::debug!(
+                "[ChatServer] Found nil UUID for message: {}",
+                chat_msg.to_console_msg()
+            );
+            chat_msg.id = Uuid::new_v5(
+                &self.platforms[&chat_msg.platform],
+                chat_msg.message.as_bytes(),
+            );
+        }
         let id = chat_msg.id.to_owned();
+
         chat_msg.amount = usd;
         chat_msg.currency = "USD".to_string();
 

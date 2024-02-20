@@ -719,7 +719,10 @@
                 message.avatar = "https://thumbnails.odycdn.com/optimize/s:160:160/quality:85/plain/https://spee.ch/spaceman-png:2.png";
                 message.username = item.channel_name;
                 message.message = item.comment;
-                message.sent_at = ((item.timestamp - 1) * 1000); // Odysee timestamps to round up, which causes messages to appear out of order.
+                // Pass whole message as TEXT Fragment in the meantime.
+                message.fragments = [Fragment(message.message)];
+                // Odysee timestamps to round up, which causes messages to appear out of order.
+                message.sent_at = ((item.timestamp - 1) * 1000);
 
                 if (item.is_fiat === true) {
                     message.amount = item.support_amount;
@@ -1137,6 +1140,7 @@
 
                 message.username = pair.sender.username;
                 message.message = pair.body.body;
+                message.fragments = [Fragment(message.message)];
                 // There is a very strange issue with X where messages are sometimes received with dates in the future.
                 // In these instances, we will want to instead use the current date.
                 if (pair.body.timestamp <= new Date) {

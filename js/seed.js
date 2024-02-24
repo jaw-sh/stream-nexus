@@ -40,6 +40,7 @@
 
     const SOCKET_URL = "ws://127.0.0.2:1350/chat.ws";
     const DEBUG = true;
+    const WINDOW = unsafeWindow ?? window;
 
     //
     // Chat Message
@@ -197,7 +198,7 @@
         /// Sends messages to the Rust backend, or adds them to the queue.
         sendChatMessages(messages) {
             // Check if the chat socket is open.
-            const ws_open = this.chatSocket !== undefined && this.chatSocket.readyState === WebSocket.OPEN;
+            const ws_open = this?.chatSocket?.readyState === WebSocket.OPEN;
             const seed_ready = this.channel !== null;
             if (ws_open && seed_ready) {
                 // Send message queue to Rust backend.
@@ -240,7 +241,7 @@
         // Patches the EventSource object to log all messages.
         eventSourcePatch() {
             const self = this;
-            const oldEventSource = unsafeWindow.EventSource;
+            const oldEventSource = WINDOW.EventSource;
             const newEventSource = function (url, config) {
                 const es = new oldEventSource(url, config);
 
@@ -252,8 +253,8 @@
             };
             newEventSource.sneed_patched = true;
             newEventSource.oldEventSource = oldEventSource;
-            unsafeWindow.EventSource = Object.assign(newEventSource, oldEventSource);
-            return unsafeWindow.EventSource;
+            WINDOW.EventSource = Object.assign(newEventSource, oldEventSource);
+            return WINDOW.EventSource;
         }
 
         // Called when an EventSource receives a message.
@@ -266,7 +267,7 @@
         //
         fetchPatch() {
             const self = this;
-            const oldFetch = unsafeWindow.fetch;
+            const oldFetch = WINDOW.fetch;
             const newFetch = function (...args) {
                 let [resource, config] = args;
                 const response = oldFetch(resource, config);
@@ -280,8 +281,8 @@
             };
             newFetch.sneed_patched = true;
             newFetch.oldFetch = oldFetch;
-            unsafeWindow.fetch = Object.assign(newFetch, oldFetch);
-            return unsafeWindow.fetch;
+            WINDOW.fetch = Object.assign(newFetch, oldFetch);
+            return WINDOW.fetch;
         }
 
         // Called when a fetch's promise is fulfilled.
@@ -295,7 +296,7 @@
         // Patches the WebSocket object to log all inbound and outbound messages.
         webSocketPatch() {
             const self = this;
-            const oldWebSocket = unsafeWindow.WebSocket;
+            const oldWebSocket = WINDOW.WebSocket;
             const newWebSocket = function (url, protocols) {
                 const ws = new oldWebSocket(url, protocols);
                 const oldWsSend = ws.send;
@@ -309,8 +310,8 @@
             };
             newWebSocket.sneed_patched = true;
             newWebSocket.oldWebSocket = oldWebSocket;
-            unsafeWindow.WebSocket = Object.assign(newWebSocket, oldWebSocket);
-            return unsafeWindow.WebSocket;
+            WINDOW.WebSocket = Object.assign(newWebSocket, oldWebSocket);
+            return WINDOW.WebSocket;
         }
 
         // Called when a websocket receives a message.
@@ -331,24 +332,24 @@
             const self = this;
 
             // XMLHttpRequest.open
-            const oldXhrOpen = unsafeWindow.XMLHttpRequest.prototype.open;
+            const oldXhrOpen = WINDOW.XMLHttpRequest.prototype.open;
             const newXhrOpen = function (method, url, async, user, password) {
                 self.onXhrOpen(this, method, url, async, user, password);
                 return oldXhrOpen.apply(this, arguments);
             };
             newXhrOpen.sneed_patched = true;
-            unsafeWindow.XMLHttpRequest.prototype.open = Object.assign(newXhrOpen, oldXhrOpen);
+            WINDOW.XMLHttpRequest.prototype.open = Object.assign(newXhrOpen, oldXhrOpen);
 
             // XMLHttpRequest.send
-            const oldXhrSend = unsafeWindow.XMLHttpRequest.prototype.send;
+            const oldXhrSend = WINDOW.XMLHttpRequest.prototype.send;
             const newXhrSend = function (body) {
                 self.onXhrSend(this, body);
                 return oldXhrSend.apply(this, arguments);
             };
             newXhrSend.sneed_patched = true;
-            unsafeWindow.XMLHttpRequest.prototype.send = Object.assign(newXhrSend, oldXhrSend);
+            WINDOW.XMLHttpRequest.prototype.send = Object.assign(newXhrSend, oldXhrSend);
 
-            return unsafeWindow.XMLHttpRequest;
+            return WINDOW.XMLHttpRequest;
         }
 
         onXhrOpen(xhr, method, url, async, user, password) {
@@ -1064,7 +1065,7 @@
 
         async onDocumentReady(event) {
             this.log("Document ready, preparing to load channel information.");
-            const yt = unsafeWindow.ytInitialData;
+            const yt = WINDOW.ytInitialData;
             let video_id = new URL(window.location.href).searchParams.get("v");
             if (video_id === null) {
                 if (yt.continuationContents !== undefined && yt.continuationContents.liveChatContinuation !== undefined) {

@@ -5,7 +5,6 @@ use uuid::Uuid;
 use super::message;
 use crate::exchange::ExchangeRates;
 use crate::message::Message as ChatMessage;
-use ammonia::clean;
 
 pub struct Connection {
     pub id: usize,
@@ -77,7 +76,14 @@ impl Handler<message::Content> for ChatServer {
             .exchange_rates
             .get_usd(&msg.chat_message.currency, &msg.chat_message.amount);
 
-        msg.chat_message.message = clean(&msg.chat_message.message);
+        msg.chat_message.message = msg
+            .chat_message
+            .message
+            .replace("&", "&amp;")
+            .replace("\"", "&quot")
+            .replace("'", "&#039;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;");
 
         // emojis = Vec<(String, String, String) where names are (find, replace, name)
         let mut replacements: HashMap<usize, String> =
@@ -86,7 +92,12 @@ impl Handler<message::Content> for ChatServer {
 
         // First, replace all instances with tokens.
         for (find, replace, name) in &msg.chat_message.emojis {
-            let url = clean(replace);
+            let url = replace
+                .replace("&", "&amp;")
+                .replace("\"", "&quot")
+                .replace("'", "&#039;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
             let key: usize = rand::random();
             let value: String = format!(
                 "<img class=\"emoji\" src=\"{}\" data-emoji=\"{}\" alt=\"{}\" />",

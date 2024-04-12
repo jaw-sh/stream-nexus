@@ -216,23 +216,46 @@
             }
         }
 
-        sendSubscriptionMessage(username, months, value) {
+        /// Sends live viewer counts to the Rust backend.
+        sendViewerCount(count) {
+            this.log("Updating viewer count. Current viewers:", count);
+            this.viewers = count;
+        }
+
+        receiveSubscriptions(sub) {
+            //{
+            //    gifted: true,
+            //    buyer: giftData.gifter_username,
+            //    count: giftData.gifted_usernames.length,
+            //    value: subValue
+            //}
             const message = new ChatMessage(
                 UUID.v5(username, this.namespace),
                 this.platform,
                 this.channel
             );
-            message.username = username;
-            message.message = `subscribed for ${months} months`;
-            message.amount = value;
+            message.username = sub.username;
+            message.amount = sub.value * sub.count;
             message.currency = "USD";
-            this.sendChatMessages([message]);
-        }
 
-        /// Sends live viewer counts to the Rust backend.
-        sendViewerCount(count) {
-            this.log("Updating viewer count. Current viewers:", count);
-            this.viewers = count;
+            if (sub.gifted) {
+                if (sub.count > 1) {
+                    message.message = `${sub.username} subscribed for ${sub.count} months!`;
+                }
+                else {
+                    message.message = `${sub.username} subscribed for 1 month!`;
+                }
+            }
+            else {
+                if (sub.count > 1) {
+                    message.message = `${sub.username} gifted ${count} subscriptions! 🎁`;
+                }
+                else {
+                    message.message = `${sub.username} gifted a subscription! 🎁`;
+                }
+            }
+
+            this.sendChatMessages([message]);
         }
 
         //
@@ -461,6 +484,8 @@
                 this.log("WebSocket received data with no event.", data);
             }
 
+            const subValue = 4.75;
+
             switch (json.event) {
                 //{"event":"App\\Events\\ChatMessageEvent","data":"{â€¦}","channel":"chatrooms.35535.v2"}
                 case "App\\Events\\ChatMessageEvent":
@@ -469,6 +494,13 @@
 
                 // {"event":"App\\Events\\GiftedSubscriptionsEvent","data":"{\"chatroom_id\":2507974,\"gifted_usernames\":[\"bigboss_23\"],\"gifter_username\":\"court\"}","channel":"chatrooms.2507974.v2"}
                 case "App\\Events\\GiftedSubscriptionsEvent":
+                    const giftData = JSON.parse(json.data);
+                    this.receiveSubscriptions({
+                        gifted: true,
+                        buyer: giftData.gifter_username,
+                        count: giftData.gifted_usernames.length,
+                        value: subValue
+                    });
                     break;
                 // {"event":"App\\Events\\GiftsLeaderboardUpdated","data":"{\"channel\":{\"id\":2515504,\"user_id\":2570626,\"slug\":\"bossmanjack\",\"is_banned\":false,\"playback_url\":\"https:\\/\\/fa723fc1b171.us-west-2.playback.live-video.net\\/api\\/video\\/v1\\/us-west-2.196233775518.channel.oliV5X2XFvWn.m3u8\",\"name_updated_at\":null,\"vod_enabled\":true,\"subscription_enabled\":true,\"can_host\":true,\"chatroom\":{\"id\":2507974,\"chatable_type\":\"App\\\\Models\\\\Channel\",\"channel_id\":2515504,\"created_at\":\"2023-03-31T21:25:27.000000Z\",\"updated_at\":\"2024-02-06T05:35:31.000000Z\",\"chat_mode_old\":\"public\",\"chat_mode\":\"public\",\"slow_mode\":false,\"chatable_id\":2515504,\"followers_mode\":true,\"subscribers_mode\":false,\"emotes_mode\":false,\"message_interval\":6,\"following_min_duration\":180}},\"leaderboard\":[{\"user_id\":21118649,\"username\":\"feepsyy\",\"quantity\":401},{\"user_id\":278737,\"username\":\"SIGNALBOOT\",\"quantity\":392},{\"user_id\":634058,\"username\":\"diddy11\",\"quantity\":266},{\"user_id\":22,\"username\":\"Eddie\",\"quantity\":180},{\"user_id\":17038949,\"username\":\"buttgrabbin\",\"quantity\":166},{\"user_id\":18409771,\"username\":\"RambleGamble\",\"quantity\":145},{\"user_id\":61177,\"username\":\"court\",\"quantity\":142},{\"user_id\":14059354,\"username\":\"Bshirley\",\"quantity\":122},{\"user_id\":2698,\"username\":\"Drake\",\"quantity\":100},{\"user_id\":10399,\"username\":\"TheManRand\",\"quantity\":72}],\"weekly_leaderboard\":[{\"user_id\":26382996,\"username\":\"doubledub2001\",\"quantity\":11},{\"user_id\":26491265,\"username\":\"dr0ptacular\",\"quantity\":11},{\"user_id\":27202375,\"username\":\"DreDre111\",\"quantity\":10},{\"user_id\":36056,\"username\":\"Scuffed\",\"quantity\":7},{\"user_id\":5556104,\"username\":\"SausageGravy\",\"quantity\":6},{\"user_id\":3685974,\"username\":\"Botaccount\",\"quantity\":5},{\"user_id\":27202627,\"username\":\"DopeSoap\",\"quantity\":5},{\"user_id\":4641706,\"username\":\"Sweetsfeature\",\"quantity\":4},{\"user_id\":803074,\"username\":\"livenationwide\",\"quantity\":3},{\"user_id\":14059354,\"username\":\"Bshirley\",\"quantity\":3}],\"monthly_leaderboard\":[{\"user_id\":61177,\"username\":\"court\",\"quantity\":73},{\"user_id\":26491265,\"username\":\"dr0ptacular\",\"quantity\":37},{\"user_id\":23522308,\"username\":\"s7eezyy\",\"quantity\":24},{\"user_id\":26878626,\"username\":\"JuiceWorld420\",\"quantity\":20},{\"user_id\":9759163,\"username\":\"KoopaTroopaZ\",\"quantity\":20},{\"user_id\":26379129,\"username\":\"Bramstammer\",\"quantity\":14},{\"user_id\":26382996,\"username\":\"doubledub2001\",\"quantity\":12},{\"user_id\":5556104,\"username\":\"SausageGravy\",\"quantity\":11},{\"user_id\":17038949,\"username\":\"buttgrabbin\",\"quantity\":10},{\"user_id\":25663663,\"username\":\"Chaissxn\",\"quantity\":10}],\"gifter_id\":61177,\"gifted_quantity\":1}","channel":"channel.2515504"}
                 case "App\\Events\\GiftsLeaderboardUpdated":
@@ -479,6 +511,13 @@
 
                 // {"event":"App\\Events\\SubscriptionEvent","data":"{\"chatroom_id\":2507974,\"username\":\"feepsyy\",\"months\":2}","channel":"chatrooms.2507974.v2"}
                 case "App\\Events\\SubscriptionEvent":
+                    const subData = JSON.parse(json.data);
+                    this.receiveSubscriptions({
+                        gifted: false,
+                        buyer: giftData.username,
+                        count: giftData.months,
+                        value: subValue
+                    });
                     break;
                 // {"event":"App\\Events\\ChannelSubscriptionEvent","data":"{\"user_ids\":[21118649],\"username\":\"feepsyy\",\"channel_id\":2515504}","channel":"channel.2515504"}
                 case "App\\Events\\ChannelSubscriptionEvent":

@@ -74,7 +74,7 @@
     //
     // Blocking Requirements
     //
-    const UUID = await import('https://jspm.dev/uuid');
+    const UUID = await import('https://ga.jspm.io/uuid');
 
     //
     // Live Counter

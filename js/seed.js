@@ -131,7 +131,7 @@
         }
 
         async fetchDependencies() {
-            window.UUID = await import('https://jspm.dev/uuid');
+            window.UUID = await import('https://ga.jspm.io/uuid');
         }
 
         //

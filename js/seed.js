@@ -1102,6 +1102,12 @@
             }));
         }
 
+        receiveChatMessages(json) {
+            return this.prepareChatMessages(json).then((data) => {
+                this.sendChatMessages(data);
+            });
+        }
+
         async onDocumentReady(event) {
             this.log("Document ready, preparing to load channel information.");
             const yt = WINDOW.ytInitialData;

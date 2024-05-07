@@ -64,9 +64,11 @@ section#attribution {
  */
 section#chat {
     width: 300px;
-    height: 100vh;
     position: absolute;
     right: 0;
+    bottom: 0;
+    top: 0;
+    overflow: hidden;
 }
 
 #chat-messages {
@@ -311,17 +313,19 @@ section#chat {
 .msg-container {
     max-width: 100%;
     height: auto;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .msg-text {
     word-wrap: break-word;
     vertical-align: bottom;
 
-    overflow: hidden;
+    overflow: visible;
     text-overflow: ellipsis;
-    margin: -2px 0;
+    margin: 0;
+    font-size: 0.9rem;
     line-height: 1.2em;
+    vertical-align: text-top;
 }
 
 .msg-text:empty {

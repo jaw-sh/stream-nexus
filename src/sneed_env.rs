@@ -12,15 +12,9 @@ pub fn get_env() {
         ("SERVER_PORT", "1350"),
     ]);
 
-    match dotenv() {
-        Ok(_) => (),
-        // According to docs, an Err implies the file was not found.
-        Err(_) => {
-            eprintln!("Creating new .env file.");
-            File::create(".env").expect("Failed to create new .env file.");
-        }
-    }
     let mut f = OpenOptions::new()
+        // Create .env if it doesn't exist.
+        .create(true)
         // append(true) implies write(true) as of rust 1.8.0
         .append(true)
         .open(".env")

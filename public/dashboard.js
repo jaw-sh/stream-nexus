@@ -36,6 +36,19 @@ var socket = null;
     });
 })();
 
+function new_poll_option(count=1) {
+    const poll_options = document.querySelector("#poll-options");
+    for (var i = 0; i < count; i++) {
+        const opt = document.createElement("input");
+        opt.setAttribute("type", "text");
+        opt.setAttribute("placeholder", `Poll option`);
+        opt.setAttribute("class", "poll-option");
+        opt.setAttribute("onkeydown", "on_poll_option_type(event)");
+        opt.setAttribute("onblur", "on_poll_option_change(event)");
+        poll_options.appendChild(opt);
+    }
+}
+
 function on_poll_option_type(event) {
     // add a new poll option if the last one is filled
     const poll_options = document.querySelectorAll(".poll-option");
@@ -46,13 +59,7 @@ function on_poll_option_type(event) {
 
     const last_option = poll_options[poll_options.length - 1];
     if (last_option.value !== "") {
-        const new_option = document.createElement("input");
-        new_option.setAttribute("type", "text");
-        new_option.setAttribute("placeholder", `Poll option`);
-        new_option.setAttribute("class", "poll-option");
-        new_option.setAttribute("onkeydown", "on_poll_option_type(event)");
-        new_option.setAttribute("onblur", "on_poll_option_change(event)");
-        document.querySelector("#poll-options").appendChild(new_option);
+        new_poll_option();
     }
 }
 
@@ -66,6 +73,17 @@ function on_poll_option_change(event) {
     if (event.target.value === "") {
         event.target.remove();
     }
+}
+
+// Clear poll UI fields.
+function clear_poll() {
+    pollquestion.value = "";
+
+    // Remove all option boxes with 2 empty ones.
+    document.querySelectorAll(".poll-option").forEach((opt) => {
+        opt.remove();
+    });
+    new_poll_option(2);
 }
 
 function on_poll_create() {
@@ -92,6 +110,8 @@ function on_poll_create() {
 
     const poll_command = `!${poll_type} ${poll_question}; ${options.join("; ")}`;
     send_message(poll_command);
+
+    clear_poll();
 }
 
 function on_poll_end() {

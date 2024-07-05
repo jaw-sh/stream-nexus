@@ -18,7 +18,7 @@
 
     <div class="grid-container">
         <div id="donation-column" class="dashboard-column">
-            <div class="donation-header">
+            <div class="dashboard-column-header">
                 Superchats
             </div>
             <div id="donation-history">
@@ -27,6 +27,30 @@
                 {{ h|safe }}
                 {% endfor %}
             </div>
+        </div>
+
+        <div id="poll-column" class="dashboard-column">
+            <div class="dashboard-column-header">
+                Polls
+            </div>
+            <div id="poll-controls">
+                <textarea id="pollquestion" placeholder="Poll Question"></textarea>
+                <div id="poll-buttons">
+                    <input type="checkbox" id="multiplechoice" />
+                    <label for="multiplechoice">Allow multiple choice</label>
+                    <button onclick="on_poll_create()">Create Poll</button>
+                    <button onclick="on_poll_end()">End Poll</button>
+                </div>
+
+                <div id="poll-options">
+                    <input type="text" onkeydown="on_poll_option_type(event)" onblur="on_poll_option_change(event)"
+                        class="poll-option" placeholder="Poll option" />
+                    <input type="text" onkeydown="on_poll_option_type(event)" onblur="on_poll_option_change(event)"
+                        class="poll-option" placeholder="Poll option" />
+                </div>
+
+            </div>
+
         </div>
     </div>
     <script type="text/javascript" src="/dashboard.js"></script>

@@ -143,7 +143,7 @@ function recalculate_premium_positions() {
         top += premium_messages[i].offsetHeight + 5;
     }
 
-    let space = document.body.scrollHeight / 2;
+    let space = document.documentElement.clientHeight / 2;
     if (top > space) {
         console.log(space, top, space - top);
         top = space - top;

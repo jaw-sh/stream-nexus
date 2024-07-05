@@ -50,7 +50,7 @@ section#attribution {
     position: absolute;
     bottom: 7px;
     left: 15px;
-    font-size: 60px;
+    font-size: 3.5vw;
     font-family: 'Verlag Black', sans-serif;
     font-style: italic;
     font-weight: bold;
@@ -87,7 +87,7 @@ section#chat {
     overflow: hidden;
     z-index: 1;
 
-    background: var(--message-bg-color, rgba(0, 0, 0, 0.75));
+    background: var(--message-bg-color, rgba(0, 0, 0, 0.9));
     border-radius: 2em 0 0 2em;
     border: 1px solid transparent;
     border-right: none;

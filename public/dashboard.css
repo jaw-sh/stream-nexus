@@ -61,7 +61,7 @@ body {
     padding: 10px;
 }
 
-.donation-header {
+.dashboard-column-header {
     border-radius: 5px 5px 0px 0px;
     font-size: 1.2em;
     font-weight: bold;
@@ -69,4 +69,29 @@ body {
     padding: 5px 0px 5px;
     background: var(--dashboard-header);
     filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.5));
+}
+
+#pollquestion {
+    resize: vertical;
+    height: 5em;
+    max-height: 10em;
+    border-radius: 0.3em;
+}
+
+#poll-controls,
+#poll-options {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-gap: 10px;
+    padding: 10px;
+    width: 100%;
+}
+
+#poll-options {
+    grid-template-rows: min-content;
+    grid-auto-rows: min-content;
+}
+
+#poll-controls {
+    grid-template-rows: min-content min-content;
 }

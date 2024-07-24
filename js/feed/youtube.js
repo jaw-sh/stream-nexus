@@ -33,7 +33,7 @@
     'use strict';
 
     console.log("[SNEED] Attaching to YouTube.");
-    const UUID = await import('https://jspm.dev/uuid');
+    const UUID = await import('https://ga.jspm.io/uuid');
     const NAMESPACE = "fd60ac36-d6b5-49dc-aee6-b0d87d130582";
     const PLATFORM = "YouTube";
 

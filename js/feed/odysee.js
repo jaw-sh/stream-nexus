@@ -33,7 +33,7 @@
 (async function () {
     'use strict';
     console.log(`[SNEED] Attaching to Odysee.`);
-    const UUID = await import('https://jspm.dev/uuid');
+    const UUID = await import('https://ga.jspm.io/uuid');
     const NAMESPACE = "d80f03bf-d30a-48e9-9e9f-81616366eefd";
     const PLATFORM = "Odysee";
 

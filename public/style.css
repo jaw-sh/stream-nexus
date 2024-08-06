@@ -13,6 +13,11 @@ body {
     overflow: hidden;
 }
 
+html {
+    --chat-width: 300px;
+}
+
+
 /**
  * Live Viewers
  */
@@ -29,7 +34,7 @@ section#live {
     background-color: rgba(0, 0, 0, 0.66);
     color: #fff;
     border-radius: 3px;
-    font-size: 0.8rem;
+    font-size: 0.8em;
     padding: 0.2em 0.5em;
     margin: 1px;
     margin-right: 0.3em;
@@ -63,7 +68,7 @@ section#attribution {
  * Chat Messages
  */
 section#chat {
-    width: 300px;
+    width: var(--chat-width);
     position: absolute;
     right: 0;
     bottom: 0;
@@ -92,15 +97,15 @@ section#chat {
     border: 1px solid transparent;
     border-right: none;
     box-sizing: border-box;
-    margin: 0.2rem 0;
-    padding: 0.5rem;
+    margin: 0.2em 0;
+    padding: 0.5em;
 
-    max-height: 10rem;
+    max-height: 10em;
     overflow: hidden;
 
     font-family: "Open Sans";
-    font-size: 16px;
-    line-height: 18px;
+    font-size: var(--message-text-size, 16px);
+    line-height: var(--message-line-height, calc(var(--message-text-size) * 1.125));
     color: var(--message-text-color, #ccc);
 }
 
@@ -123,7 +128,7 @@ section#chat {
     box-sizing: border-box;
     width: 100%;
     flex-direction: row;
-    padding: 0.5rem;
+    padding: 0.5em;
     background: var(--message-head-color, transparent);
 }
 
@@ -131,8 +136,8 @@ section#chat {
 .msg-username,
 .msg-badges,
 .msg-badges>span {
-    font-size: 1rem;
-    line-height: 1.2rem;
+    font-size: 1em;
+    line-height: 1.2em;
     vertical-align: top;
 }
 
@@ -169,8 +174,8 @@ section#chat {
 
 .msg-avatar-border {
     position: relative;
-    height: 2rem;
-    width: 2rem;
+    height: 2em;
+    width: 2em;
     margin-right: 0.5em;
     overflow: hidden;
     flex-shrink: 0;
@@ -196,7 +201,7 @@ section#chat {
     color: var(--brand-color);
     font-family: 'VT323', Courier, monospace;
     font-weight: bold;
-    font-size: 2rem;
+    font-size: 2em;
 }
 
 .msg--p-Odysee .msg-avatar-border {
@@ -288,20 +293,17 @@ section#chat {
 
 .msg-letter {
     display: inline-block;
-    height: 2rem;
-    width: 2rem;
-    font-size: 1.2rem;
+    width: 100%;
+    line-height: 0.8;
     text-align: center;
-    vertical-align: text-top;
-    line-height: 2rem;
+    vertical-align: top;
     font-weight: bold;
     color: var(--brand-color);
-    margin: -2px 0 0 -2px;
 }
 
 .msg-avatar {
-    height: 2rem;
-    width: 2rem;
+    height: 2em;
+    width: 2em;
     margin: -2px 0 0 -2px;
     position: absolute;
     top: 0;
@@ -323,7 +325,7 @@ section#chat {
     overflow: visible;
     text-overflow: ellipsis;
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 0.9em;
     line-height: 1.2em;
     vertical-align: text-top;
 }
@@ -334,8 +336,8 @@ section#chat {
 
 .msg--t .msg-text {
     width: 100%;
-    padding: 1rem;
-    padding-top: 0.5rem;
+    padding: 1em;
+    padding-top: 0.5em;
 }
 
 /**
@@ -361,6 +363,28 @@ section#chat {
     margin: 0;
 }
 
+/**
+ * Overlay Feature Message
+ **/
+section#show-message {
+    position: absolute;
+    bottom: 512px;
+    left: 0;
+
+    width: auto;
+    max-width: calc(100% - var(--chat-width) - 15px);
+
+    --message-text-size: 32px;
+}
+
+section#show-message .msg {
+    border-radius: 0;
+    padding-left: 15px;
+}
+
+/**
+ * Flyouts and Polls
+ **/
 #flyout {
     position: absolute;
     z-index: 100;

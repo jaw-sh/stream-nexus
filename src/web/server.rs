@@ -52,6 +52,7 @@ impl ChatServer {
                         chat_messages,
                         paid_messages,
                         exchange_rates,
+                        viewer_counts: Default::default(),
                     };
                 }
             }
@@ -200,6 +201,24 @@ impl Handler<message::Disconnect> for ChatServer {
     fn handle(&mut self, msg: message::Disconnect, _: &mut Context<Self>) {
         // Remove Client from HashMap.
         self.clients.remove(&msg.id);
+    }
+}
+
+/// Handler for feature/unfeature message.
+impl<'a> Handler<message::FeatureMessage> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: message::FeatureMessage, _: &mut Context<Self>) -> Self::Result {
+        for (_, conn) in &self.clients {
+            conn.recipient.do_send(message::Reply(
+                serde_json::to_string(&message::ReplyInner {
+                    tag: "feature_message".to_owned(),
+                    message: serde_json::to_string(&msg.id)
+                        .expect("Failed to serialize feature string."),
+                })
+                .expect("Failed to serialize feature ReplyInner"),
+            ));
+        }
     }
 }
 

@@ -1,4 +1,5 @@
-var donation_history = document.querySelector("#donation-history");
+const chat_history = document.querySelector("#chat-history");
+const donation_history = document.querySelector("#donation-history");
 
 var socket = null;
 (function () {
@@ -20,9 +21,23 @@ var socket = null;
 
     // Listen for messages
     socket.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
+        const message = JSON.parse(data.message);
+        switch (data.tag) {
+            case "chat_message":
+                handle_message(message);
+                break;
+            case "feature_message":
+                handle_feature_message(message);
+                break;
+            case "viewers":
+                handle_viewers(message);
+                break;
+            default:
+                console.log("Unknown tag:", message.tag);
+                break;
 
-        handle_message(message);
+        }
     });
 
     socket.addEventListener("close", (event) => {
@@ -36,7 +51,7 @@ var socket = null;
     });
 })();
 
-function new_poll_option(count=1) {
+function new_poll_option(count = 1) {
     const poll_options = document.querySelector("#poll-options");
     for (var i = 0; i < count; i++) {
         const opt = document.createElement("input");
@@ -118,6 +133,23 @@ function on_poll_end() {
     send_message("!endpoll");
 }
 
+function on_click_message(event) {
+    console.log(this);
+    // if we are sticky, unfeature.
+    if (this.classList.contains("msg--sticky")) {
+        send_feature_message(null);
+    }
+    else {
+        send_feature_message(this.id);
+    }
+}
+
+function send_feature_message(id) {
+    console.log("Featuring message:", id);
+    const message = { "feature_message": id };
+    socket.send(JSON.stringify(message));
+}
+
 function send_message(text) {
     function uuidv5() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -148,8 +180,54 @@ function send_message(text) {
     socket.send(JSON.stringify(data));
 }
 
-function handle_message(message) {
-    if (message.amount > 0) {
-        donation_history.innerHTML = donation_history.innerHTML + message.html;
+function handle_feature_message(id) {
+    // unsticky all existing sticky messages
+    const sticky_messages = document.querySelectorAll(".msg--sticky");
+    sticky_messages.forEach((msg) => {
+        msg.classList.remove("msg--sticky");
+    });
+
+    // sticky featured message
+    const featured_message = document.getElementById(id);
+    if (featured_message !== null) {
+        featured_message.classList.add("msg--sticky");
     }
+}
+
+function handle_message(message) {
+    // check if element already exists
+    const existingEl = document.getElementById(message.id);
+    if (existingEl !== null) {
+        return existingEl;
+    }
+
+    // create message el
+    let el = document.createElement("div");
+
+    // send to superchat column
+    if (message.amount > 0) {
+        el = donation_history.appendChild(el);
+        el.outerHTML = message.html;
+    }
+    // send to chat column
+    else {
+        el = chat_history.appendChild(el);
+        el.outerHTML = message.html;
+
+        // prune oldest messages
+        while (chat_history.children.length > 1000) {
+            for (let i = 0; i < chat_history.children.length; i++) {
+                if (!chat_history.childNodes[i].classList.contains("msg--sticky")) {
+                    chat_history.childNodes[i].remove();
+                    break;
+                }
+            }
+        }
+    }
+
+    document.getElementById(message.id).addEventListener("click", on_click_message);
+}
+
+function handle_viewers() {
+    // Do nothing.
 }

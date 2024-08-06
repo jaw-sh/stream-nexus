@@ -7,7 +7,7 @@ use super::ChatMessage;
 use super::ChatServer;
 use super::CLIENT_TIMEOUT;
 use super::HEARTBEAT_INTERVAL;
-use crate::message::LivestreamUpdate;
+use crate::message::{CommandFeatureMessage, LivestreamUpdate};
 
 pub struct ChatClient {
     /// Connection ID
@@ -159,8 +159,20 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ChatClient {
                             }
                         }
                     }
-                    Err(err) => {
-                        log::warn!("Error parsing client message: {:?}", err);
+                    Err(_) => {
+                        match serde_json::from_str::<CommandFeatureMessage>(&text) {
+                            Ok(message) => {
+                                self.send_or_reply(
+                                    ctx,
+                                    message::FeatureMessage {
+                                        id: message.feature_message,
+                                    },
+                                );
+                            }
+                            Err(err) => {
+                                log::warn!("Error parsing client message: {:?}", err);
+                            }
+                        };
                     }
                 };
             }

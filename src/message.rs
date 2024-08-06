@@ -41,6 +41,12 @@ pub struct LivestreamUpdate {
     pub viewers: Option<usize>,
 }
 
+#[derive(Serialize, Deserialize, Debug, ActixMessage, Clone)]
+#[rtype(result = "()")]
+pub struct CommandFeatureMessage {
+    pub feature_message: Option<Uuid>,
+}
+
 #[derive(Debug, Serialize)]
 struct JsonWrapper<'a> {
     #[serde(flatten)]

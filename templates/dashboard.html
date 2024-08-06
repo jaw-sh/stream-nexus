@@ -17,10 +17,12 @@
 <body class="theme-dark">
 
     <div class="grid-container">
+        <div id="chat-column" class="dashboard-column">
+            <div class="dashboard-column-header">Chat</div>
+            <div id="chat-history"></div>
+        </div>
         <div id="donation-column" class="dashboard-column">
-            <div class="dashboard-column-header">
-                Superchats
-            </div>
+            <div class="dashboard-column-header">Superchats</div>
             <div id="donation-history">
                 {% for sc in super_chats %}
                 {% let h = sc.to_html() %}
@@ -30,9 +32,7 @@
         </div>
 
         <div id="poll-column" class="dashboard-column">
-            <div class="dashboard-column-header">
-                Polls
-            </div>
+            <div class="dashboard-column-header">Polls</div>
             <div id="poll-controls">
                 <textarea id="pollquestion" placeholder="Poll Question"></textarea>
                 <div id="poll-buttons">

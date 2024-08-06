@@ -1,4 +1,5 @@
-const main = document.querySelector("#chat-messages");
+const chat_history = document.querySelector("#chat-messages");
+const feature_message = document.querySelector("#show-message");
 
 // Create WebSocket connection.
 let socket = new WebSocket("ws://127.0.0.2:1350/chat.ws");
@@ -20,17 +21,20 @@ const bindWebsocketEvents = () => {
 
     // Listen for messages
     socket.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data);
-        const data = JSON.parse(message.message);
-        switch (message.tag) {
+        const data = JSON.parse(event.data);
+        const message = JSON.parse(data.message);
+        switch (data.tag) {
             case "chat_message":
-                handle_message(data);
+                handle_message(message);
+                break;
+            case "feature_message":
+                handle_feature_message(message);
                 break;
             case "viewers":
-                handle_viewers(data);
+                handle_viewers(message);
                 break;
             default:
-                console.log("Unknown message", message);
+                console.log("Unknown tag:", message.tag);
                 break;
 
         }
@@ -67,6 +71,25 @@ function handle_emote(node, message) {
 
 }
 
+function handle_feature_message(id) {
+    // Check if message is a set or unset.
+    if (id === null) {
+        feature_message.innerHTML = "";
+    }
+    else {
+        let el = document.getElementById(id);
+        if (el !== null) {
+            let fel = el.cloneNode(true);
+            fel.id = `feature-${id}`;
+            feature_message.innerHTML = fel.outerHTML;
+            console.log("SET!!!");
+        }
+        else {
+            console.log("Featured chat message not found:", id);
+        }
+    }
+}
+
 function handle_message(message) {
     // check if element already exists
     const existingEl = document.getElementById(message.id);
@@ -82,7 +105,7 @@ function handle_message(message) {
 
     // create message el
     let el = document.createElement("div");
-    main.appendChild(el);
+    chat_history.appendChild(el);
     el.outerHTML = message.html;
     el = document.getElementById(message.id);
 
@@ -94,10 +117,10 @@ function handle_message(message) {
     //    handle_emote(el, message);
 
     // remove first old message that is not sticky.
-    while (main.children.length > 1000) {
-        for (let i = 0; i < main.children.length; i++) {
-            if (!main.childNodes[i].classList.contains("msg--sticky")) {
-                main.childNodes[i].remove();
+    while (chat_history.children.length > 1000) {
+        for (let i = 0; i < chat_history.children.length; i++) {
+            if (!chat_history.childNodes[i].classList.contains("msg--sticky")) {
+                chat_history.childNodes[i].remove();
                 break;
             }
         }

@@ -43,6 +43,15 @@ impl Message for Content {
     type Result = ();
 }
 
+/// Feature/Unfeature message.
+pub struct FeatureMessage {
+    pub id: Option<uuid::Uuid>,
+}
+
+impl Message for FeatureMessage {
+    type Result = ();
+}
+
 /// Request for recent chat messages.
 pub struct RecentMessages;
 

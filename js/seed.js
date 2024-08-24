@@ -131,6 +131,8 @@
         }
 
         async fetchDependencies() {
+            // Need import for  UUIDv5 for deterministic UUIDs.
+            // Deterministic UUIDs help deduplicate messages in anomolous events.
             window.UUID = await import('https://jspm.dev/uuid');
         }
 

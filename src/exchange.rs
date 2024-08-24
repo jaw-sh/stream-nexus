@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs::OpenOptions;
+use std::io::{Read, Write};
 
 use anyhow::{anyhow, Result};
 use quick_xml::events::Event;
@@ -66,6 +68,13 @@ fn parse_xml(body: &str) -> Result<ExchangeRates> {
 }
 
 pub async fn fetch_exchange_rates() -> Result<ExchangeRates> {
+    let mut f = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open("exchange_rates.xml")
+        .expect("Failed to open exchange rates backup file.");
+
     // Send an HTTP GET request to the URL
     let response = reqwest::get(RATES_URL).await?;
 
@@ -75,11 +84,19 @@ pub async fn fetch_exchange_rates() -> Result<ExchangeRates> {
         // Check for XML subject text.
         if text.contains("Reference rates") {
             // Parses the XML response into an ExchangeRates.
-            return parse_xml(&text);
+            match parse_xml(&text) {
+                Ok(r) => {
+                    f.write_all(text.as_bytes())
+                        .expect("Failed to write exchange write backup to file.");
+                    return Ok(r);
+                }
+                Err(_) => (),
+            }
         }
     }
 
-    // TODO: Fallback
-    // log::error!("Failed to fetch Exchange Rates! System will rely on old data!");
-    Err(anyhow!("Failed to fetch Exchange Rates!"))
+    log::error!("Failed to fetch Exchange Rates! System will rely on old data!");
+    let mut text = String::new();
+    f.read_to_string(&mut text)?;
+    parse_xml(&text)
 }

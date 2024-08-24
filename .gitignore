@@ -1,3 +1,4 @@
 /.env
 /target
+exchange_rates.xml
 super_chats.json

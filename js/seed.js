@@ -39,7 +39,7 @@
     'use strict';
 
     const SOCKET_URL = "ws://127.0.0.2:1350/chat.ws";
-    const DEBUG = true;
+    const DEBUG = false;
     const WINDOW = unsafeWindow ?? window;
 
     //
@@ -131,7 +131,7 @@
         }
 
         async fetchDependencies() {
-            window.UUID = await import('https://ga.jspm.io/uuid');
+            window.UUID = await import('https://jspm.dev/uuid');
         }
 
         //

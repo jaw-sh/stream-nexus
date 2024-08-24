@@ -18,6 +18,7 @@ dotenvy = "0.15"
 env_logger = "0.10.0"
 futures = "0.3.28"
 log = "0.4.19"
+quick-xml = { version = "0.36.1" }
 rand = "0.8.5"
 reqwest = "0.11.20"
 serde = { version = "1.0", features = ["derive"] }

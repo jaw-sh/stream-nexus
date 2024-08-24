@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name S.N.E.E.D. (Kick)
-// @version 1.1.0
+// @version 1.1.1
 // @description Stream Nexus userscript for Kick chat.
 // @license BSD-3-Clause
 // @author Joshua Moon <josh@josh.rs>
@@ -134,6 +134,8 @@
             avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
             amount: 0,
             currency: "ZWL",
+            is_premium: false,
+            emojis: [],
             is_verified: false,
             is_sub: false,
             is_mod: false,
@@ -165,9 +167,9 @@
 
             // Emotes are supplied as bbcode: [emote:37221:EZ]
             // Image file found at: https://files.kick.com/emotes/37221/fullsize
-            // <img data-v-31c262c8="" data-emote-name="EZ" data-emote-id="37221" src="https://files.kick.com/emotes/37221/fullsize" alt="EZ" class="chat-emote">
+            // Server will replace the bbcode with the image provided via the emoji array with (bbcode, url, name). 
             message.message.replace(/\[emote:(\d+):([^\]]+)\]/g, (match, id, name) => {
-                message.message = message.message.replace(match, `<img class="emote" data-emote="${name}" src="https://files.kick.com/emotes/${id}/fullsize" alt="${name}" />`);
+                message.emojis.push([match, `https://files.kick.com/emotes/${id}/fullsize`, name]);
             });
 
             messageData.sender.identity.badges.forEach((badge) => {

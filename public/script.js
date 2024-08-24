@@ -119,7 +119,8 @@ function handle_message(message) {
     // remove first old message that is not sticky.
     while (chat_history.children.length > 1000) {
         for (let i = 0; i < chat_history.children.length; i++) {
-            if (!chat_history.childNodes[i].classList.contains("msg--sticky")) {
+            let classes = chat_history.childNodes[i].classList;
+            if (!classes.contains("msg--sticky") && !classes.contains("msg--t")) {
                 chat_history.childNodes[i].remove();
                 break;
             }

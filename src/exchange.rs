@@ -61,6 +61,7 @@ fn parse_xml(body: &str) -> Result<ExchangeRates> {
     }
 
     assert_ne!(rates.len(), 0);
+    rates.insert(String::from("EUR"), 1.0);
     // Static RUB rate taken on 2024-08-24.
     rates.insert(String::from("RUB"), 102.33);
 

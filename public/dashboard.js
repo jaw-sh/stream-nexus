@@ -244,6 +244,7 @@ function handle_message(message) {
     if (message.amount > 0) {
         el = donation_history.appendChild(el);
         el.outerHTML = message.html;
+        console.log("sneed");
     }
     // send to chat column
     else {
@@ -266,4 +267,8 @@ function handle_message(message) {
 
 function handle_viewers() {
     // Do nothing.
+}
+
+for (el of document.getElementsByClassName("msg")) {
+    el.addEventListener("click", on_click_message);
 }

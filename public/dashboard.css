@@ -35,12 +35,43 @@ body {
 }
 
 .dashboard-column {
+    display: flex;
+    flex-direction: column;
+
     background-color: var(--background-accent);
     border-radius: 5px;
-    display: grid;
     overflow-y: auto;
-    grid-template-rows: min-content 1fr;
+    overflow-x: hidden;
     scrollbar-color: var(--foreground-inactive) var(--background);
+}
+
+.dashboard-column-header {
+    border-radius: 5px 5px 0px 0px;
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    padding: 5px 0px 5px;
+    background: var(--dashboard-header);
+    filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.5));
+}
+
+.dashboard-column-content {
+    flex-grow: 1;
+}
+
+.dashboard-form {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+}
+.dashboard-form-row {
+    display: flex;
+    flex-direction: row;
+    max-width: 100%;
+}
+.dashboard-form-row textarea,
+.dashboard-form-row button {
+    width: 100%;
 }
 
 /* for chrome */
@@ -56,21 +87,25 @@ body {
     border-radius: 5px;
 }
 
+/**
+ * Message History
+ */
+
+/**
+ * Donation History
+ */
 #donation-history {
     overflow-y: auto;
-    padding: 10px;
 }
 
-.dashboard-column-header {
-    border-radius: 5px 5px 0px 0px;
-    font-size: 1.2em;
-    font-weight: bold;
-    text-align: center;
-    padding: 5px 0px 5px;
-    background: var(--dashboard-header);
-    filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.5));
+.dashboard-column-content .msg {
+    border: none;
+    border-radius: 0;
 }
 
+/**
+ * Polls
+ */
 #pollquestion {
     resize: vertical;
     height: 5em;

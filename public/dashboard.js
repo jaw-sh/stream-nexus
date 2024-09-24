@@ -1,6 +1,32 @@
 const chat_history = document.querySelector("#chat-history");
 const donation_history = document.querySelector("#donation-history");
 
+class ChatMessage {
+    constructor(id, platform, channel) {
+        this.id = id;
+        this.platform = platform;
+        this.channel = channel;
+        this.sent_at = Date.now(); // System timestamp for display ordering.
+        this.received_at = Date.now(); // Local timestamp for management.
+
+        this.message = "";
+        this.emojis = [];
+
+        this.username = "DUMMY_USER";
+        this.avatar = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="; // Transparent pixel.
+
+        this.amount = 0;
+        this.currency = "ZWL";
+
+        this.is_verified = false;
+        this.is_sub = false;
+        this.is_mod = false;
+        this.is_owner = false;
+        this.is_staff = false;
+    }
+
+}
+
 var socket = null;
 (function () {
     // Create WebSocket connection.
@@ -124,13 +150,13 @@ function on_poll_create() {
     }
 
     const poll_command = `!${poll_type} ${poll_question}; ${options.join("; ")}`;
-    send_message(poll_command);
+    send_simple_message(poll_command);
 
     clear_poll();
 }
 
 function on_poll_end() {
-    send_message("!endpoll");
+    send_simple_message("!endpoll");
 }
 
 function on_click_message(event) {
@@ -150,34 +176,44 @@ function send_feature_message(id) {
     socket.send(JSON.stringify(message));
 }
 
-function send_message(text) {
-    function uuidv5() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+function uuidv5() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+function send_message(msg) {
+    msg.sent_at = Math.round(Date.now() / 1000);
+    msg.received_at = Math.round(Date.now() / 1000);
+
+    const data = { "platform": "none", "messages": [msg] };
+    socket.send(JSON.stringify(data));
+}
+
+function send_paid_message() {
+    let msg = new ChatMessage(uuidv5(), "none", "none");
+    msg.platform = document.getElementById("donation-platform")?.value;
+    msg.username = document.getElementById("donation-username")?.value;
+    msg.amount = parseFloat(document.getElementById("donation-amount")?.value);
+    msg.currency = document.getElementById("donation-currency")?.value;
+    msg.message = document.getElementById("donation-message")?.value;
+
+    switch (msg.platform) {
+        case "mail":
+        case "usps":
+            msg.avatar = "/logo/United_States_Postal_Service_(emblem).png";
+            break;
     }
 
-    const message = {
-        "id": uuidv5(),
-        "platform": "rumble",
-        "username": "mati",
-        "message": text,
-        "sent_at": Math.round(Date.now() / 1000),
-        "received_at": Math.round(Date.now() / 1000),
-        "avatar": "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-        "is_premium": false,
-        "amount": 0.0,
-        "currency": "USD",
-        "is_verified": true,
-        "is_sub": true,
-        "is_mod": true,
-        "is_owner": true,
-        "is_staff": false,
-        "emojis": [],
-    }
-    const data = { "platform": "rumble", "messages": [message] }
-    socket.send(JSON.stringify(data));
+    console.log(msg);
+    return send_message(msg);
+}
+
+function send_simple_message(text) {
+    let msg = new ChatMessage(uuidv5(), "none", "none");
+    msg.message = text;
+    return send_message(msg);
 }
 
 function handle_feature_message(id) {

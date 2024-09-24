@@ -19,11 +19,27 @@
     <div class="grid-container">
         <div id="chat-column" class="dashboard-column">
             <div class="dashboard-column-header">Chat</div>
-            <div id="chat-history"></div>
+            <div class="dashboard-column-content" id="chat-history"></div>
         </div>
         <div id="donation-column" class="dashboard-column">
             <div class="dashboard-column-header">Superchats</div>
-            <div id="donation-history">
+            <form class="dashboard-form" id="donation-manual">
+                <div class="dashboard-form-row">
+                    <input type="text" id="donation-platform" name="donation-platform" value="mail" />
+                    <input type="text" id="donation-username" name="donation-username" value="Anonymous" />
+                </div>
+                <div class="dashboard-form-row">
+                    <input type="text" id="donation-amount" name="donation-amount" placeholder="Amount" />
+                    <input type="text" id="donation-currency" name="donation-currency" value="USD" />
+                </div>
+                <div class="dashboard-form-row">
+                    <textarea id="donation-message" name="donation-message"></textarea>
+                </div>
+                <div class="dashboard-form-row">
+                    <button id="donation-send" onclick="send_paid_message(); return false">Send</button>
+                </div>
+            </form>
+            <div class="dashboard-column-content" id="donation-history">
                 {% for sc in super_chats %}
                 {% let h = sc.to_html() %}
                 {{ h|safe }}
@@ -33,7 +49,7 @@
 
         <div id="poll-column" class="dashboard-column">
             <div class="dashboard-column-header">Polls</div>
-            <div id="poll-controls">
+            <div class="dashboard-column-content" id="poll-controls">
                 <textarea id="pollquestion" placeholder="Poll Question"></textarea>
                 <div id="poll-buttons">
                     <input type="checkbox" id="multiplechoice" />

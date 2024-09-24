@@ -187,6 +187,13 @@ section#chat {
     border-color: var(--brand-color);
 }
 
+.msg--p-mail .msg-avatar-border {
+    --brand-color: var(--kick-brand, rgba(0, 75, 135, 1));
+    background: none;
+    border-color: transparent;
+    border-radius: 6px;
+}
+
 .msg--p-Kick .msg-avatar-border {
     --brand-color: var(--kick-brand, rgba(133, 199, 66, 1));
     background: none;

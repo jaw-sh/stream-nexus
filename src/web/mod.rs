@@ -101,14 +101,21 @@ pub async fn colors() -> impl Responder {
         .body(std::fs::read_to_string("public/user-colors.css").unwrap())
 }
 
-#[actix_web::get("/logo/{platform}.svg")]
-pub async fn logo(path: web::Path<String>) -> impl Responder {
-    let path = format!("public/logo/{}.svg", path.to_owned());
-    match std::fs::read_to_string(&path) {
-        Ok(svg) => HttpResponse::Ok()
-            .append_header((header::CONTENT_TYPE, "image/svg+xml"))
-            .body(svg),
-        Err(_) => HttpResponse::NotFound().body("Not found"),
+#[actix_web::get("/logo/{platform}.{ext}")]
+pub async fn logo(info: web::Path<(String, String)>) -> impl Responder {
+    let (platform, ext) = info.into_inner();
+    let path = format!("public/logo/{}.{}", platform, ext);
+    match std::fs::read(&path) {
+        Ok(body) => match ext.as_str() {
+            "svg" => HttpResponse::Ok()
+                .append_header((header::CONTENT_TYPE, "image/svg+xml"))
+                .body(body),
+            "png" => HttpResponse::Ok()
+                .append_header((header::CONTENT_TYPE, "image/png"))
+                .body(body),
+            _ => HttpResponse::UnsupportedMediaType().body("Invalid extension"),
+        },
+        Err(e) => HttpResponse::NotFound().body(e.to_string()),
     }
 }
 

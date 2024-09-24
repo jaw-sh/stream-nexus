@@ -106,9 +106,12 @@ impl Handler<message::Content> for ChatServer {
     fn handle(&mut self, mut msg: message::Content, _: &mut Context<Self>) -> Self::Result {
         log::debug!("[ChatServer] {}", msg.chat_message.to_console_msg());
 
-        let usd = self
-            .exchange_rates
-            .get_usd(&msg.chat_message.currency, &msg.chat_message.amount);
+        let usd = if msg.chat_message.amount > 0.0 {
+            self.exchange_rates
+                .get_usd(&msg.chat_message.currency, &msg.chat_message.amount)
+        } else {
+            0.0
+        };
 
         msg.chat_message.message = msg
             .chat_message

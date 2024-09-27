@@ -380,6 +380,7 @@
             newXhrSend.sneed_patched = true;
             WINDOW.XMLHttpRequest.prototype.send = Object.assign(newXhrSend, oldXhrSend);
 
+            console.log("XHR patching");
             return WINDOW.XMLHttpRequest;
         }
 
@@ -595,7 +596,24 @@
             }
         }
 
+        // Called when a fetch's promise is fulfilled.
+        async onFetchResponse(response) {
+            if (response.url.indexOf("/current-viewers") >= 0) {
+                await response.json().then((json) => {
+                    for (const channel of json) {
+                        //if (channel.livestream_id === this.channel_id) {
+                        this.sendViewerCount(channel.viewers);
+                        //}
+                        //else {
+                        //    this.log("Channel ID mismatch.", channel.livestream_id, this.channel_id);
+                        //}
+                    }
+                });
+            }
+        }
+
         onXhrOpen(xhr, method, url, async, user, password) {
+            console.log("asdksajdsa");
             if (url.startsWith("https://kick.com/api/v2/messages/send/")) {
                 xhr.addEventListener("readystatechange", (event) => this.onXhrSendMessageReadyStateChange(xhr, event));
             }
@@ -672,6 +690,9 @@
                 if (channel.livestream_id === this.livestream_id) {
                     this.sendViewerCount(channel.viewers);
                     return;
+                }
+                else {
+                    this.log("XHR received viewers for unknown livestream.", channel);
                 }
             }
         }

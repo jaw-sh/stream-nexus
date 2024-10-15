@@ -89,6 +89,8 @@
         chatMessageQueue = [];
         /// Current connection to the Rust backend.
         chatSocket = null;
+        /// Timeout for re-attempting socket.
+        chatSocketTimeout = null;
 
         constructor(namespace, platform, channel) {
             this.namespace = namespace;
@@ -175,6 +177,7 @@
                 this.chatSocket = ws;
             }
 
+            //clearTimeout(this.chatSocketTimeout);
             return this.chatSocket;
         }
 
@@ -193,17 +196,17 @@
         // Called when the chat socket is closed.
         onChatSocketClose(ws, event) {
             this.debug("Chat socket closed.", event);
-            setTimeout(() => this.createChatSocket(), 3000);
+            this.chatSocketTimeout = setTimeout(() => this.createChatSocket(), 3000);
         }
 
         // Called when the chat socket errors.
         onChatSocketError(ws, event) {
             this.debug("Chat socket errored.", event);
             ws.close();
-            setTimeout(() => this.createChatSocket(), 3000);
+            this.chatSocketTimeout = setTimeout(() => this.createChatSocket(), 3000);
         }
 
-        /// Sends messages to the Rust backend, or adds them to the queue.
+        /// Sends messages to the Rz`ust backend, or adds them to the queue.
         sendChatMessages(messages) {
             // Check if the chat socket is open.
             const ws_open = this?.chatSocket?.readyState === WebSocket.OPEN;
@@ -232,13 +235,14 @@
 
         receiveSubscriptions(sub) {
             //{
+            //    id: xxx,
             //    gifted: true,
             //    buyer: giftData.gifter_username,
             //    count: giftData.gifted_usernames.length,
             //    value: subValue
             //}
             const message = new ChatMessage(
-                UUID.v5(username, this.namespace),
+                UUID.v5(sub.id, this.namespace),
                 this.platform,
                 this.channel
             );
@@ -493,7 +497,7 @@
                 this.log("WebSocket received data with no event.", data);
             }
 
-            const subValue = 4.75;
+            const subValue = 5;
 
             switch (json.event) {
                 //{"event":"App\\Events\\ChatMessageEvent","data":"{â€¦}","channel":"chatrooms.35535.v2"}
@@ -613,7 +617,6 @@
         }
 
         onXhrOpen(xhr, method, url, async, user, password) {
-            console.log("asdksajdsa");
             if (url.startsWith("https://kick.com/api/v2/messages/send/")) {
                 xhr.addEventListener("readystatechange", (event) => this.onXhrSendMessageReadyStateChange(xhr, event));
             }
@@ -853,80 +856,110 @@
         }
 
         receiveChatPairs(messages, users) {
-            return this.prepareChatMessages(messages, users).then((data) => {
+            this.prepareSubscriptions(messages, users).then((data) => {
+                data.forEach((datum) => {
+                    this.receiveSubscriptions(datum);
+                });
+            });
+
+            this.prepareChatMessages(messages, users).then((data) => {
                 this.sendChatMessages(data);
             });
         }
 
         prepareChatMessages(messages, users) {
-            return Promise.all(messages.map(async (messageData, index) => {
-                const message = new ChatMessage(
-                    UUID.v5(messageData.id, this.namespace),
-                    this.platform,
-                    this.channel
-                );
+            return Promise.all(messages
+                .filter(async (messageData) => {
+                    messageData.text.trim() !== "";
+                })
+                .map(async (messageData, index) => {
+                    const message = new ChatMessage(
+                        UUID.v5(messageData.id, this.namespace),
+                        this.platform,
+                        this.channel
+                    );
 
-                const user = users.find((user) => user.id === messageData.user_id);
-                if (user === undefined) {
-                    this.log("User not found:", messageData.user_id);
-                    return;
-                }
-
-                message.sent_at = Date.parse(messageData.time);
-                message.message = messageData.text;
-                // replace :r+rumbleemoji: with <img> tags
-                for (const match of message.message.matchAll(/\:([a-zA-Z0-9_\.\+\-]+)\:/g)) {
-                    const id = match[1];
-                    // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}
-                    if (this.emotes[id] !== undefined) {
-                        message.emojis.push([match[0], this.emotes[id], `:${id}:`]);
+                    const user = users.find((user) => user.id === messageData.user_id);
+                    if (user === undefined) {
+                        this.log("User not found:", messageData.user_id);
+                        return;
                     }
-                    else {
-                        this.log(`no emote for ${id}`);
-                    }
-                }
 
-                message.username = user.username;
-                if (user['image.1'] !== undefined) {
-                    message.avatar = user['image.1'];
-                }
-
-                if (user.badges !== undefined) {
-                    user.badges.forEach((badge) => {
-                        switch (badge) {
-                            case "admin":
-                                message.is_owner = true;
-                                break;
-                            case "moderator":
-                                message.is_mod = true;
-                                break;
-                            case "whale-gray":
-                            case "whale-blue":
-                            case "whale-yellow":
-                            case "locals":
-                            case "locals_supporter":
-                            case "recurring_subscription":
-                                message.is_sub = true;
-                                break;
-                            case "premium":
-                                break;
-                            case "verified":
-                                message.is_verified = true;
-                                break;
-                            default:
-                                this.log(`Unknown badge type: ${badge.type} `);
-                                break;
+                    message.sent_at = Date.parse(messageData.time);
+                    message.message = messageData.text;
+                    // replace :r+rumbleemoji: with <img> tags
+                    for (const match of message.message.matchAll(/\:([a-zA-Z0-9_\.\+\-]+)\:/g)) {
+                        const id = match[1];
+                        // {"request_id":"dT+js0Ay7a7e2ZeUi1GyzB7MoWCmLBp/e7jHzPKXXUs","type":"messages","data":{"messages":[{"id":"1346698824721596624","time":"2023-12-30T21:00:58+00:00","user_id":"88707682","text":":r+smh:","blocks":[{"type":"text.1","data":{"text":":r+smh:"}}]}],"users":[{"id":"88707682","username":"madattheinternet","link":"/user/madattheinternet","is_follower":false,"image.1":"https://ak2.rmbl.ws/z0/I/j/z/s/Ijzsf.asF-1gtbaa-rpmd6x.jpeg","color":"#f54fd1","badges":["premium","whale-gray"]}],"channels":[[]]}}
+                        if (this.emotes[id] !== undefined) {
+                            message.emojis.push([match[0], this.emotes[id], `:${id}:`]);
                         }
-                    });
-                }
+                        else {
+                            this.log(`no emote for ${id}`);
+                        }
+                    }
 
-                if (messageData.rant !== undefined) {
-                    message.amount = messageData.rant.price_cents / 100;
-                    message.currency = "USD";
-                }
+                    message.username = user.username;
+                    if (user['image.1'] !== undefined) {
+                        message.avatar = user['image.1'];
+                    }
 
-                return message;
-            }));
+                    if (user.badges !== undefined) {
+                        user.badges.forEach((badge) => {
+                            switch (badge) {
+                                case "admin":
+                                    message.is_owner = true;
+                                    break;
+                                case "moderator":
+                                    message.is_mod = true;
+                                    break;
+                                case "whale-gray":
+                                case "whale-blue":
+                                case "whale-yellow":
+                                case "locals":
+                                case "locals_supporter":
+                                case "recurring_subscription":
+                                    message.is_sub = true;
+                                    break;
+                                case "premium":
+                                    break;
+                                case "verified":
+                                    message.is_verified = true;
+                                    break;
+                                default:
+                                    this.log(`Unknown badge type: ${badge.type} `);
+                                    break;
+                            }
+                        });
+                    }
+
+                    if (messageData.rant !== undefined) {
+                        message.amount = messageData.rant.price_cents / 100;
+                        message.currency = "USD";
+                    }
+
+                    return message;
+                }));
+        }
+
+        prepareSubscriptions(messages, users) {
+            return Promise.all(messages
+                .filter(messageData => messageData.hasOwnProperty('notification'))
+                .map(async (messageData, index) => {
+                    const user = users.find((user) => user.id === messageData.user_id);
+                    if (user === undefined) {
+                        this.log("User not found:", messageData.user_id);
+                        return;
+                    }
+
+                    return {
+                        id: messageData.id,
+                        gifted: false,
+                        buyer: user.username,
+                        count: 1,
+                        value: 5
+                    };
+                }));
         }
 
         // Called when an EventSource receives a message.
@@ -1361,28 +1394,29 @@
     //
     switch (window.location.hostname) {
         case 'kick.com':
-            new Kick;
+            WINDOW.SNEEDER = new Kick;
             break;
         case 'odysee.com':
-            new Odysee;
+            WINDOW.SNEEDER = new Odysee;
             break;
         case 'rumble.com':
-            new Rumble;
+            WINDOW.SNEEDER = new Rumble;
             break;
         case 'twitch':
-            new Twitch;
+            WINDOW.SNEEDER = new Twitch;
         case "vk.com":
-            new VK;
+            WINDOW.SNEEDER = new VK;
             break;
         case 'www.youtube.com':
         case 'youtube.com':
-            new YouTube;
+            WINDOW.SNEEDER = new YouTube;
             break;
         case "twitter.com":
         case "x.com":
-            new X;
+            WINDOW.SNEEDER = new X;
             break;
         default:
+            WINDOW.SNEEDER = null;
             console.log(`[SNEED] No platform detected for ${window.location.hostname}.`);
             break;
     }

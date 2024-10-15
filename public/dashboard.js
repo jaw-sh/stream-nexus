@@ -156,7 +156,7 @@ function on_poll_create() {
 }
 
 function on_poll_end() {
-    send_simple_message("!endpoll");
+    send_simple_message("!endpoll", true);
 }
 
 function on_click_message(event) {
@@ -210,9 +210,10 @@ function send_paid_message() {
     return send_message(msg);
 }
 
-function send_simple_message(text) {
+function send_simple_message(text, is_owner = false) {
     let msg = new ChatMessage(uuidv5(), "none", "none");
     msg.message = text;
+    msg.is_owner = is_owner;
     return send_message(msg);
 }
 
